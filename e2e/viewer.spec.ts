@@ -26,6 +26,31 @@ test('grid shows a pictogram image per file', async ({ page }) => {
   expect(missingSrc).toBe(0);
 });
 
+test('rendered media fits the viewport width', async ({ page }) => {
+  const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth);
+
+  await openFile(page, 'logo.svg');
+  const imageWidth = await page.evaluate(() => {
+    const img = document.querySelector('#viewer')?.shadowRoot?.querySelector('img');
+    return img instanceof HTMLImageElement ? img.getBoundingClientRect().width : -1;
+  });
+  expect(imageWidth).toBeGreaterThan(0);
+  expect(imageWidth).toBeLessThanOrEqual(viewportWidth);
+
+  await page.getByRole('link', { name: 'Close viewer' }).click();
+  await expect(page.locator(SEL.dialog)).toBeHidden();
+
+  await openFile(page, 'doc.pdf');
+  const measureCanvas = (): Promise<number> =>
+    page.evaluate(() => {
+      const canvas = document.querySelector('#viewer')?.shadowRoot?.querySelector('canvas');
+      return canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect().width : 0;
+    });
+  // pdf.js paints the canvas asynchronously — poll until it has a width.
+  await expect.poll(measureCanvas).toBeGreaterThan(0);
+  expect(await measureCanvas()).toBeLessThanOrEqual(viewportWidth);
+});
+
 test('no horizontal overflow on the grid or in the viewer', async ({ page }) => {
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   await openFile(page, 'sales.csv');

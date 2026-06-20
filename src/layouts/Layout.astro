@@ -211,23 +211,8 @@ const { title = 'Web File Reader' } = Astro.props;
         overflow-x: auto;
         animation: wfr-fade 0.18s ease both;
       }
-      wfr-viewer::part(page) img,
-      wfr-viewer::part(page) canvas {
-        max-inline-size: 100%;
-        height: auto;
-      }
-      wfr-viewer::part(page) table {
-        border-collapse: collapse;
-        inline-size: 100%;
-        font-size: 0.9rem;
-      }
-      wfr-viewer::part(page) th,
-      wfr-viewer::part(page) td {
-        border: 1px solid var(--line);
-        padding: 0.35rem 0.6rem;
-        text-align: start;
-        white-space: nowrap;
-      }
+      /* Content sizing (img/canvas/table) lives in the viewer's own shadow
+         styles — ::part() cannot reach a part's descendants. */
 
       /* --- Auto-hiding paging controls overlaid on the viewer --- */
       wfr-viewer-nav {
