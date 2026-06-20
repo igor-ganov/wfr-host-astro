@@ -12,6 +12,7 @@ export const FILES: readonly FileDescriptor[] = [
     extension: 'md',
     mimeType: 'text/markdown',
     source: { kind: 'url', url: withBase('samples/readme.md') },
+    previewIconUrl: withBase('icons/file-md.svg'),
   },
   {
     id: 'notes',
@@ -19,6 +20,7 @@ export const FILES: readonly FileDescriptor[] = [
     extension: 'txt',
     mimeType: 'text/plain',
     source: { kind: 'url', url: withBase('samples/notes.txt') },
+    previewIconUrl: withBase('icons/file-txt.svg'),
   },
   {
     id: 'sales',
@@ -26,6 +28,7 @@ export const FILES: readonly FileDescriptor[] = [
     extension: 'csv',
     mimeType: 'text/csv',
     source: { kind: 'url', url: withBase('samples/sales.csv') },
+    previewIconUrl: withBase('icons/file-csv.svg'),
   },
   {
     id: 'logo',
@@ -33,6 +36,8 @@ export const FILES: readonly FileDescriptor[] = [
     extension: 'svg',
     mimeType: 'image/svg+xml',
     source: { kind: 'url', url: withBase('samples/logo.svg') },
+    // An image file shows its own thumbnail as the tile pictogram.
+    previewIconUrl: withBase('samples/logo.svg'),
   },
   {
     id: 'doc',
@@ -40,6 +45,7 @@ export const FILES: readonly FileDescriptor[] = [
     extension: 'pdf',
     mimeType: 'application/pdf',
     source: { kind: 'url', url: withBase('samples/doc.pdf') },
+    previewIconUrl: withBase('icons/file-pdf.svg'),
   },
 ];
 

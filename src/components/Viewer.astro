@@ -1,0 +1,37 @@
+---
+import { withBase } from '../lib/base';
+---
+
+<!--
+  The viewer shell is rendered on every route and persisted across navigations
+  (transition:persist), so paging between files never remounts the dialog — it
+  stays open and only its content updates. setup-viewer.ts drives open/close and
+  the current file from the URL.
+-->
+<dialog
+  id="viewer-dialog"
+  class="viewer-dialog"
+  aria-label="File viewer"
+  transition:persist="viewer-shell"
+>
+  <div class="chrome">
+    <span class="chrome-title" id="viewer-title"></span>
+    <span class="chrome-actions">
+      <button id="settings-button" type="button" aria-haspopup="dialog" aria-expanded="false">
+        Settings
+      </button>
+      <button id="fs-button" type="button">Fullscreen</button>
+      <a id="close-button" href={withBase('')} aria-label="Close viewer">Close</a>
+    </span>
+  </div>
+
+  <wfr-viewer id="viewer">
+    <wfr-settings-panel slot="toolbar" id="settings-panel" hidden></wfr-settings-panel>
+    <wfr-viewer-nav slot="controls" id="nav"></wfr-viewer-nav>
+  </wfr-viewer>
+</dialog>
+
+<script>
+  import { setupViewer } from '../lib/setup-viewer';
+  document.addEventListener('astro:page-load', () => void setupViewer());
+</script>

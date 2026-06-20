@@ -44,6 +44,11 @@ const { title = 'Web File Reader' } = Astro.props;
 
       html {
         color-scheme: light dark;
+        /* Reserve the scrollbar gutter so opening/closing the modal never
+           reflows the page (kills the close "jerk"). */
+        scrollbar-gutter: stable;
+        /* Remove the grey/blue tap rectangle on mobile (the "debug squares"). */
+        -webkit-tap-highlight-color: transparent;
       }
 
       body {
@@ -53,6 +58,12 @@ const { title = 'Web File Reader' } = Astro.props;
         color: var(--fg);
         font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         -webkit-font-smoothing: antialiased;
+      }
+
+      /* Lock background scroll behind the open modal (gutter is reserved above,
+         so this toggle does not shift layout). */
+      body:has(dialog#viewer-dialog[open]) {
+        overflow: clip;
       }
 
       .page {
@@ -75,7 +86,7 @@ const { title = 'Web File Reader' } = Astro.props;
 
       /* --- File grid (headless: styled via parts + custom properties) --- */
       wfr-file-grid {
-        --wfr-grid-min: 9rem;
+        --wfr-grid-min: 8rem;
         --wfr-grid-gap: 1rem;
         --wfr-focus-outline: var(--focus);
       }
@@ -86,13 +97,22 @@ const { title = 'Web File Reader' } = Astro.props;
         background: var(--card);
         transition: border-color 0.15s, transform 0.15s;
       }
-      wfr-file-tile::part(button):hover {
-        border-color: var(--accent);
-        transform: translateY(-2px);
+      @media (hover: hover) {
+        wfr-file-tile::part(button):hover {
+          border-color: var(--accent);
+          transform: translateY(-2px);
+        }
       }
       wfr-file-tile::part(preview) {
-        font-size: 2.5rem;
         block-size: 3.5rem;
+      }
+      wfr-file-tile::part(icon) {
+        font-size: 2.5rem;
+        max-block-size: 3.5rem;
+        max-inline-size: 100%;
+        inline-size: auto;
+        block-size: auto;
+        object-fit: contain;
       }
       wfr-file-tile::part(label) {
         font-size: 0.9rem;
@@ -104,6 +124,7 @@ const { title = 'Web File Reader' } = Astro.props;
       /* --- Viewer dialog --- */
       dialog#viewer-dialog {
         inline-size: min(64rem, 95vw);
+        max-block-size: min(90dvh, 60rem);
         block-size: min(90dvh, 60rem);
         padding: 0;
         border: 1px solid var(--line);
@@ -115,11 +136,14 @@ const { title = 'Web File Reader' } = Astro.props;
       dialog#viewer-dialog[open] {
         display: flex;
         flex-direction: column;
+        animation: wfr-dialog-in 0.2s ease;
       }
-      dialog#viewer-dialog::backdrop {
+      dialog#viewer-dialog[open]::backdrop {
         background: color-mix(in srgb, CanvasText 45%, transparent);
         backdrop-filter: blur(2px);
+        animation: wfr-fade 0.2s ease;
       }
+
       .chrome {
         display: flex;
         align-items: center;
@@ -127,6 +151,7 @@ const { title = 'Web File Reader' } = Astro.props;
         gap: 1rem;
         padding: 0.5rem 0.75rem;
         border-block-end: 1px solid var(--line);
+        flex: none;
       }
       .chrome-title {
         font-weight: 600;
@@ -143,6 +168,9 @@ const { title = 'Web File Reader' } = Astro.props;
       .chrome-actions a {
         font: inherit;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        min-block-size: 2.75rem;
         padding: 0.35rem 0.7rem;
         border: 1px solid var(--line);
         border-radius: 0.5rem;
@@ -178,8 +206,13 @@ const { title = 'Web File Reader' } = Astro.props;
         max-inline-size: 50rem;
         margin-inline: auto;
         inline-size: 100%;
+        /* Wide content (tables, large canvases) scrolls within the card
+           instead of overflowing the viewport. */
+        overflow-x: auto;
+        animation: wfr-fade 0.18s ease both;
       }
-      wfr-viewer::part(page) img {
+      wfr-viewer::part(page) img,
+      wfr-viewer::part(page) canvas {
         max-inline-size: 100%;
         height: auto;
       }
@@ -193,6 +226,7 @@ const { title = 'Web File Reader' } = Astro.props;
         border: 1px solid var(--line);
         padding: 0.35rem 0.6rem;
         text-align: start;
+        white-space: nowrap;
       }
 
       /* --- Auto-hiding paging controls overlaid on the viewer --- */
@@ -229,6 +263,7 @@ const { title = 'Web File Reader' } = Astro.props;
       /* --- Settings panel --- */
       wfr-settings-panel {
         display: block;
+        flex: none;
         padding: 0.75rem 1rem;
         border-block-end: 1px solid var(--line);
         background: var(--card);
@@ -238,13 +273,52 @@ const { title = 'Web File Reader' } = Astro.props;
         display: none;
       }
 
+      /* --- Mobile: the viewer fills the screen so content adapts and the
+             surface (not the page) owns the scroll. --- */
+      @media (max-width: 640px) {
+        dialog#viewer-dialog {
+          inline-size: 100vw;
+          max-inline-size: 100vw;
+          block-size: 100dvh;
+          max-block-size: 100dvh;
+          border: none;
+          border-radius: 0;
+        }
+        wfr-viewer::part(page) {
+          padding: 1rem;
+        }
+      }
+
+      @keyframes wfr-fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes wfr-dialog-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         ::view-transition-group(*),
         ::view-transition-old(*),
         ::view-transition-new(*) {
           animation: none !important;
         }
-        wfr-file-tile::part(button) {
+        wfr-file-tile::part(button),
+        dialog#viewer-dialog[open],
+        dialog#viewer-dialog[open]::backdrop,
+        wfr-viewer::part(page) {
+          animation: none;
           transition: none;
         }
       }
