@@ -103,16 +103,17 @@ const { title = 'Web File Reader' } = Astro.props;
           transform: translateY(-2px);
         }
       }
+      /* Fully reserve the preview box (square) so loading pictograms never
+         shift layout — keeps CLS at zero on a cold load. */
       wfr-file-tile::part(preview) {
+        inline-size: 3.5rem;
         block-size: 3.5rem;
       }
       wfr-file-tile::part(icon) {
-        font-size: 2.5rem;
-        max-block-size: 3.5rem;
-        max-inline-size: 100%;
-        inline-size: auto;
-        block-size: auto;
+        inline-size: 100%;
+        block-size: 100%;
         object-fit: contain;
+        font-size: 2.5rem;
       }
       wfr-file-tile::part(label) {
         font-size: 0.9rem;
