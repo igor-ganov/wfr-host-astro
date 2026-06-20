@@ -86,11 +86,21 @@ const { title = 'Web File Reader' } = Astro.props;
 
       /* --- File grid (headless: styled via parts + custom properties) --- */
       wfr-file-grid {
+        /* `display:block` applies even before the element upgrades, so the
+           reservation below holds from first paint. */
+        display: block;
         --wfr-grid-min: 8rem;
         --wfr-grid-gap: 1rem;
         --wfr-focus-outline: var(--focus);
       }
+      /* Fixed row height makes grid layout deterministic, so hydrating tiles
+         never reflow the rows (CLS stays at zero). */
+      wfr-file-grid::part(grid) {
+        grid-auto-rows: 8rem;
+      }
       wfr-file-tile::part(button) {
+        block-size: 100%;
+        justify-content: center;
         padding: 1rem;
         border: 1px solid var(--line);
         border-radius: var(--radius);
@@ -272,6 +282,11 @@ const { title = 'Web File Reader' } = Astro.props;
         }
         wfr-viewer::part(page) {
           padding: 1rem;
+        }
+        /* Reserve the grid's footprint so client-side hydration of the tiles
+           does not shift layout (keeps CLS ~0 on mobile). */
+        wfr-file-grid {
+          min-block-size: 26rem;
         }
       }
 
