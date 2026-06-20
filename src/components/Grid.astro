@@ -1,0 +1,27 @@
+---
+import { FILES } from '../lib/files';
+---
+
+<wfr-file-grid id="file-grid" label="Sample files" transition:persist="file-grid"></wfr-file-grid>
+
+<noscript>
+  <ul>
+    {FILES.map((file) => <li><a href={`/viewer/${file.id}`}>{file.name}</a></li>)}
+  </ul>
+</noscript>
+
+<script>
+  import '@web-file-reader/file-grid';
+  import { FILES } from '../lib/files';
+  import { navigate } from 'astro:transitions/client';
+
+  const initGrid = (): void => {
+    const grid = document.querySelector('wfr-file-grid');
+    if (grid === null || grid.dataset.ready === '1') return;
+    grid.dataset.ready = '1';
+    grid.files = FILES;
+    grid.addEventListener('wfr-open', (event) => void navigate(`/viewer/${event.detail.file.id}`));
+  };
+
+  document.addEventListener('astro:page-load', initGrid);
+</script>

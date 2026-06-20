@@ -1,0 +1,44 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Grid from '../../components/Grid.astro';
+import { FILES, fileById } from '../../lib/files';
+
+export function getStaticPaths() {
+  return FILES.map((file) => ({ params: { fileId: file.id } }));
+}
+
+const { fileId } = Astro.params;
+const file = fileById(fileId);
+---
+
+<Layout title={`${file?.name ?? 'Viewer'} — Web File Reader`}>
+  <main class="page">
+    <header class="masthead">
+      <h1>Web File Reader</h1>
+    </header>
+    <Grid />
+  </main>
+
+  <dialog id="viewer-dialog" aria-label={`Viewing ${file?.name ?? 'file'}`} transition:name="viewer">
+    <div class="chrome">
+      <span class="chrome-title">{file?.name}</span>
+      <span class="chrome-actions">
+        <button id="settings-button" type="button" aria-haspopup="dialog" aria-expanded="false">
+          Settings
+        </button>
+        <button id="fs-button" type="button">Fullscreen</button>
+        <a id="close-button" href="/" aria-label="Close viewer">Close</a>
+      </span>
+    </div>
+
+    <wfr-viewer id="viewer">
+      <wfr-settings-panel slot="toolbar" id="settings-panel" hidden></wfr-settings-panel>
+      <wfr-viewer-nav slot="controls" id="nav"></wfr-viewer-nav>
+    </wfr-viewer>
+  </dialog>
+
+  <script>
+    import { setupViewer } from '../../lib/setup-viewer';
+    document.addEventListener('astro:page-load', setupViewer);
+  </script>
+</Layout>

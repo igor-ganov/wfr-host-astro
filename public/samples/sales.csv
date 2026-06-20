@@ -1,0 +1,9 @@
+Region,Quarter,Product,"Revenue, USD",Notes
+North,Q1,Widgets,12500,"Strong start"
+North,Q2,Widgets,13800,"Steady growth"
+South,Q1,Gadgets,9800,"New market"
+South,Q2,Gadgets,15200,"Doubled, exceeded plan"
+East,Q1,Widgets,7600,"Slow ramp"
+East,Q2,Gadgets,11100,"Recovered"
+West,Q1,"Gizmos, deluxe",18400,"Premium line"
+West,Q2,"Gizmos, deluxe",21000,"Best seller"

@@ -1,0 +1,252 @@
+---
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  readonly title?: string;
+}
+
+const { title = 'Web File Reader' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Headless, accessible, high-performance file reader built from a series of Lit web components."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title}</title>
+    <ClientRouter />
+  </head>
+  <body>
+    <slot />
+
+    <style is:global>
+      :root {
+        --bg: Canvas;
+        --fg: CanvasText;
+        --muted: color-mix(in srgb, CanvasText 60%, Canvas);
+        --line: color-mix(in srgb, CanvasText 18%, Canvas);
+        --card: color-mix(in srgb, CanvasText 4%, Canvas);
+        --accent: color-mix(in srgb, CanvasText 85%, Canvas);
+        --radius: 0.75rem;
+        --focus: 2px solid color-mix(in srgb, CanvasText 70%, Canvas);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: light dark;
+      }
+
+      body {
+        margin: 0;
+        min-block-size: 100dvh;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .page {
+        max-inline-size: 72rem;
+        margin-inline: auto;
+        padding: clamp(1rem, 3vw, 2.5rem);
+      }
+
+      .masthead h1 {
+        margin: 0 0 0.25rem;
+        font-size: clamp(1.5rem, 4vw, 2.25rem);
+        letter-spacing: -0.02em;
+      }
+
+      .masthead p {
+        margin: 0 0 2rem;
+        color: var(--muted);
+        max-inline-size: 48ch;
+      }
+
+      /* --- File grid (headless: styled via parts + custom properties) --- */
+      wfr-file-grid {
+        --wfr-grid-min: 9rem;
+        --wfr-grid-gap: 1rem;
+        --wfr-focus-outline: var(--focus);
+      }
+      wfr-file-tile::part(button) {
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      wfr-file-tile::part(button):hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+      wfr-file-tile::part(preview) {
+        font-size: 2.5rem;
+        block-size: 3.5rem;
+      }
+      wfr-file-tile::part(label) {
+        font-size: 0.9rem;
+        color: var(--muted);
+        word-break: break-word;
+        text-align: center;
+      }
+
+      /* --- Viewer dialog --- */
+      dialog#viewer-dialog {
+        inline-size: min(64rem, 95vw);
+        block-size: min(90dvh, 60rem);
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--bg);
+        color: var(--fg);
+        overflow: hidden;
+      }
+      dialog#viewer-dialog[open] {
+        display: flex;
+        flex-direction: column;
+      }
+      dialog#viewer-dialog::backdrop {
+        background: color-mix(in srgb, CanvasText 45%, transparent);
+        backdrop-filter: blur(2px);
+      }
+      .chrome {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0.75rem;
+        border-block-end: 1px solid var(--line);
+      }
+      .chrome-title {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chrome-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex: none;
+      }
+      .chrome-actions button,
+      .chrome-actions a {
+        font: inherit;
+        cursor: pointer;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: var(--card);
+        color: inherit;
+        text-decoration: none;
+      }
+      .chrome-actions button:focus-visible,
+      .chrome-actions a:focus-visible {
+        outline: var(--focus);
+        outline-offset: 2px;
+      }
+
+      /* --- Viewer surface + pages (headless parts) --- */
+      wfr-viewer {
+        position: relative;
+        flex: 1 1 auto;
+        min-block-size: 0;
+        --wfr-page-gap: 1rem;
+        --wfr-fullscreen-bg: var(--bg);
+        --wfr-focus-outline: var(--focus);
+      }
+      wfr-viewer::part(surface) {
+        padding: 1rem;
+        background: color-mix(in srgb, CanvasText 6%, Canvas);
+      }
+      wfr-viewer::part(page) {
+        background: Canvas;
+        color: CanvasText;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 4px color-mix(in srgb, CanvasText 15%, transparent);
+        padding: 1.25rem 1.5rem;
+        max-inline-size: 50rem;
+        margin-inline: auto;
+        inline-size: 100%;
+      }
+      wfr-viewer::part(page) img {
+        max-inline-size: 100%;
+        height: auto;
+      }
+      wfr-viewer::part(page) table {
+        border-collapse: collapse;
+        inline-size: 100%;
+        font-size: 0.9rem;
+      }
+      wfr-viewer::part(page) th,
+      wfr-viewer::part(page) td {
+        border: 1px solid var(--line);
+        padding: 0.35rem 0.6rem;
+        text-align: start;
+      }
+
+      /* --- Auto-hiding paging controls overlaid on the viewer --- */
+      wfr-viewer-nav {
+        display: block;
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+      }
+      wfr-viewer-nav::part(nav) {
+        position: absolute;
+        inset-block: 0;
+        inset-inline: 0;
+        justify-content: space-between;
+        align-items: center;
+        padding-inline: 0.5rem;
+      }
+      wfr-viewer-nav::part(prev),
+      wfr-viewer-nav::part(next) {
+        pointer-events: auto;
+        inline-size: 2.75rem;
+        block-size: 2.75rem;
+        display: grid;
+        place-items: center;
+        font-size: 1.5rem;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: color-mix(in srgb, Canvas 80%, transparent);
+        color: CanvasText;
+        backdrop-filter: blur(4px);
+      }
+
+      /* --- Settings panel --- */
+      wfr-settings-panel {
+        display: block;
+        padding: 0.75rem 1rem;
+        border-block-end: 1px solid var(--line);
+        background: var(--card);
+        --wfr-focus-outline: var(--focus);
+      }
+      wfr-settings-panel[hidden] {
+        display: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        ::view-transition-group(*),
+        ::view-transition-old(*),
+        ::view-transition-new(*) {
+          animation: none !important;
+        }
+        wfr-file-tile::part(button) {
+          transition: none;
+        }
+      }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "wfr-host-astro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference Astro host for web-file-reader: file grid, dialog-with-URL viewer route, View Transitions paging, settings persistence.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Igor Ganov",
+  "homepage": "https://github.com/igor-ganov/wfr-host-astro",
+  "repository": { "type": "git", "url": "https://github.com/igor-ganov/wfr-host-astro.git" },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@web-file-reader/core": "workspace:*",
+    "@web-file-reader/file-grid": "workspace:*",
+    "@web-file-reader/navigation": "workspace:*",
+    "@web-file-reader/provider-csv": "workspace:*",
+    "@web-file-reader/provider-image": "workspace:*",
+    "@web-file-reader/provider-markdown": "workspace:*",
+    "@web-file-reader/provider-pdf": "workspace:*",
+    "@web-file-reader/settings": "workspace:*",
+    "@web-file-reader/viewer": "workspace:*",
+    "astro": "^5.1.1"
+  }
+}

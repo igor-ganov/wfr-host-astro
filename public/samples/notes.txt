@@ -1,0 +1,9 @@
+Plain text notes
+================
+
+The Markdown provider also handles plain-text files.
+Switch the "view" setting to "source" to see content verbatim.
+
+- no parsing
+- monospace friendly
+- scrolls in normal and fullscreen modes
