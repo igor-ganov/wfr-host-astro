@@ -149,6 +149,11 @@ const { title = 'Web File Reader' } = Astro.props;
         flex-direction: column;
         animation: wfr-dialog-in 0.2s ease;
       }
+      /* The dialog is focused on open for a11y; it must not show a focus ring. */
+      dialog#viewer-dialog:focus,
+      dialog#viewer-dialog:focus-visible {
+        outline: none;
+      }
       dialog#viewer-dialog[open]::backdrop {
         background: color-mix(in srgb, CanvasText 45%, transparent);
         backdrop-filter: blur(2px);
@@ -207,6 +212,11 @@ const { title = 'Web File Reader' } = Astro.props;
       wfr-viewer::part(surface) {
         padding: 1rem;
         background: color-mix(in srgb, CanvasText 6%, Canvas);
+        /* Center short content vertically (no dead void) while still scrolling
+           tall content from the top (`safe`). */
+        display: flex;
+        flex-direction: column;
+        justify-content: safe center;
       }
       wfr-viewer::part(page) {
         background: Canvas;
@@ -282,6 +292,16 @@ const { title = 'Web File Reader' } = Astro.props;
         }
         wfr-viewer::part(page) {
           padding: 1rem;
+          font-size: 0.85rem;
+        }
+        /* Denser cells so wide tables fit a phone screen. */
+        wfr-viewer {
+          --wfr-cell-padding: 0.3rem 0.45rem;
+        }
+        /* The dialog already fills the screen on mobile — fullscreen would only
+           hide the toolbar, so drop the control here. */
+        #fs-button {
+          display: none;
         }
         /* Reserve the grid's footprint so client-side hydration of the tiles
            does not shift layout (keeps CLS ~0 on mobile). */

@@ -60,7 +60,16 @@ const wireOnce = ({ dialog, viewer, nav, panel }: Shell): void => {
     if (event.target === dialog) void navigate(withBase(''));
   });
 
-  document.getElementById('fs-button')?.addEventListener('click', () => void viewer.toggleFullscreen());
+  // Fullscreen the whole dialog (not just the viewer) so the toolbar — and the
+  // way back out — stays visible. On mobile the dialog already fills the screen,
+  // so the button is hidden there (see styles).
+  document.getElementById('fs-button')?.addEventListener('click', () => {
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen();
+    } else if (typeof dialog.requestFullscreen === 'function') {
+      void dialog.requestFullscreen().catch(() => {});
+    }
+  });
 
   const settingsButton = document.getElementById('settings-button');
   settingsButton?.addEventListener('click', () => {
@@ -114,7 +123,13 @@ const syncRoute = async ({ dialog, viewer, nav, panel }: Shell): Promise<void> =
     }
   }
 
-  if (!dialog.open) dialog.showModal();
+  if (!dialog.open) {
+    dialog.showModal();
+    // showModal auto-focuses the first control (a visible focus ring for pointer
+    // users that looks like a bug). Move focus to the dialog itself instead;
+    // keyboard users still Tab into the controls (which then show rings).
+    dialog.focus();
+  }
 };
 
 /** Wire (once) and sync the persistent viewer shell to the current route. */
