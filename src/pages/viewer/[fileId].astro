@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Grid from '../../components/Grid.astro';
 import { FILES, fileById } from '../../lib/files';
+import { withBase } from '../../lib/base';
 
 export function getStaticPaths() {
   return FILES.map((file) => ({ params: { fileId: file.id } }));
@@ -27,7 +28,7 @@ const file = fileById(fileId);
           Settings
         </button>
         <button id="fs-button" type="button">Fullscreen</button>
-        <a id="close-button" href="/" aria-label="Close viewer">Close</a>
+        <a id="close-button" href={withBase('')} aria-label="Close viewer">Close</a>
       </span>
     </div>
 

@@ -1,18 +1,20 @@
 ---
 import { FILES } from '../lib/files';
+import { withBase } from '../lib/base';
 ---
 
 <wfr-file-grid id="file-grid" label="Sample files" transition:persist="file-grid"></wfr-file-grid>
 
 <noscript>
   <ul>
-    {FILES.map((file) => <li><a href={`/viewer/${file.id}`}>{file.name}</a></li>)}
+    {FILES.map((file) => <li><a href={withBase(`viewer/${file.id}`)}>{file.name}</a></li>)}
   </ul>
 </noscript>
 
 <script>
   import '@web-file-reader/file-grid';
   import { FILES } from '../lib/files';
+  import { withBase } from '../lib/base';
   import { navigate } from 'astro:transitions/client';
 
   const initGrid = (): void => {
@@ -20,7 +22,9 @@ import { FILES } from '../lib/files';
     if (grid === null || grid.dataset.ready === '1') return;
     grid.dataset.ready = '1';
     grid.files = FILES;
-    grid.addEventListener('wfr-open', (event) => void navigate(`/viewer/${event.detail.file.id}`));
+    grid.addEventListener('wfr-open', (event) =>
+      void navigate(withBase(`viewer/${event.detail.file.id}`)),
+    );
   };
 
   document.addEventListener('astro:page-load', initGrid);

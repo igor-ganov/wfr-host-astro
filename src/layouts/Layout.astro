@@ -1,5 +1,6 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+import { withBase } from '../lib/base';
 
 interface Props {
   readonly title?: string;
@@ -18,7 +19,7 @@ const { title = 'Web File Reader' } = Astro.props;
       content="Headless, accessible, high-performance file reader built from a series of Lit web components."
     />
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
     <title>{title}</title>
     <ClientRouter />
   </head>

@@ -4,6 +4,7 @@ import '@web-file-reader/settings';
 import { canGoNext, canGoPrev, createPaging, goNext, goPrev } from '@web-file-reader/core';
 import { navigate } from 'astro:transitions/client';
 import { FILES, fileById, indexOfFile } from './files';
+import { withBase } from './base';
 import { getRegistry } from './registry';
 import { loadSettings, saveSettings } from './settings-store';
 
@@ -21,7 +22,7 @@ export const setupViewer = async (): Promise<void> => {
   const currentId = location.pathname.split('/').filter(Boolean).pop();
   const file = fileById(currentId);
   if (file === undefined) {
-    void navigate('/');
+    void navigate(withBase(''));
     return;
   }
 
@@ -36,21 +37,21 @@ export const setupViewer = async (): Promise<void> => {
   nav.canNext = canGoNext(paging);
   nav.addEventListener('wfr-prev', () => {
     const target = FILES[goPrev(paging).index];
-    if (target !== undefined) void navigate(`/viewer/${target.id}`);
+    if (target !== undefined) void navigate(withBase(`viewer/${target.id}`));
   });
   nav.addEventListener('wfr-next', () => {
     const target = FILES[goNext(paging).index];
-    if (target !== undefined) void navigate(`/viewer/${target.id}`);
+    if (target !== undefined) void navigate(withBase(`viewer/${target.id}`));
   });
 
   // Open as a modal dialog (focus trap + Escape) while the URL reflects the file.
   if (!dialog.open) dialog.showModal();
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
-    void navigate('/');
+    void navigate(withBase(''));
   });
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) void navigate('/');
+    if (event.target === dialog) void navigate(withBase(''));
   });
 
   document.getElementById('fs-button')?.addEventListener('click', () => void viewer.toggleFullscreen());

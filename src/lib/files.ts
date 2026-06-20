@@ -1,4 +1,5 @@
 import type { FileDescriptor } from '@web-file-reader/core';
+import { withBase } from './base';
 
 /**
  * Sample file set for the reference host. Sources point at static assets in
@@ -10,35 +11,35 @@ export const FILES: readonly FileDescriptor[] = [
     name: 'readme.md',
     extension: 'md',
     mimeType: 'text/markdown',
-    source: { kind: 'url', url: '/samples/readme.md' },
+    source: { kind: 'url', url: withBase('samples/readme.md') },
   },
   {
     id: 'notes',
     name: 'notes.txt',
     extension: 'txt',
     mimeType: 'text/plain',
-    source: { kind: 'url', url: '/samples/notes.txt' },
+    source: { kind: 'url', url: withBase('samples/notes.txt') },
   },
   {
     id: 'sales',
     name: 'sales.csv',
     extension: 'csv',
     mimeType: 'text/csv',
-    source: { kind: 'url', url: '/samples/sales.csv' },
+    source: { kind: 'url', url: withBase('samples/sales.csv') },
   },
   {
     id: 'logo',
     name: 'logo.svg',
     extension: 'svg',
     mimeType: 'image/svg+xml',
-    source: { kind: 'url', url: '/samples/logo.svg' },
+    source: { kind: 'url', url: withBase('samples/logo.svg') },
   },
   {
     id: 'doc',
     name: 'doc.pdf',
     extension: 'pdf',
     mimeType: 'application/pdf',
-    source: { kind: 'url', url: '/samples/doc.pdf' },
+    source: { kind: 'url', url: withBase('samples/doc.pdf') },
   },
 ];
 
