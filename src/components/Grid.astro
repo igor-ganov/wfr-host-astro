@@ -3,7 +3,7 @@ import { FILES } from '../lib/files';
 import { withBase } from '../lib/base';
 ---
 
-<wfr-file-grid id="file-grid" label="Sample files" transition:persist="file-grid"></wfr-file-grid>
+<wfr-file-grid id="file-grid" label="Sample files"></wfr-file-grid>
 
 <noscript>
   <ul>
@@ -14,18 +14,16 @@ import { withBase } from '../lib/base';
 <script>
   import '@web-file-reader/file-grid';
   import { FILES } from '../lib/files';
-  import { withBase } from '../lib/base';
-  import { navigate } from 'astro:transitions/client';
 
+  // The grid only publishes its data; activating a tile emits a bubbling,
+  // composed `wfr-open` event that the viewer controller handles on `document`
+  // (no navigation). Keep the <noscript> anchors as the no-JS fallback.
   const initGrid = (): void => {
     const grid = document.querySelector('wfr-file-grid');
     if (grid === null || grid.dataset.ready === '1') return;
     grid.dataset.ready = '1';
     grid.files = FILES;
-    grid.addEventListener('wfr-open', (event) =>
-      void navigate(withBase(`viewer/${event.detail.file.id}`)),
-    );
   };
 
-  document.addEventListener('astro:page-load', initGrid);
+  initGrid();
 </script>

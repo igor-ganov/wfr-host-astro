@@ -3,18 +3,12 @@ import { withBase } from '../lib/base';
 ---
 
 <!--
-  The viewer shell is rendered on every route and persisted across navigations
-  (transition:persist), so paging between files never remounts the dialog — it
-  stays open and only its content updates. setup-viewer.ts drives open/close and
-  the current file from the URL.
+  The viewer shell is rendered on every route. It is created once on the client
+  and never removed/reinserted: open/page/close are pure client-side state
+  changes (history + DOM props), so a top-layer modal survives paging.
+  setup-viewer.ts drives open/close and the current file from the URL.
 -->
-<dialog
-  id="viewer-dialog"
-  class="viewer-dialog"
-  aria-label="File viewer"
-  tabindex="-1"
-  transition:persist="viewer-shell"
->
+<dialog id="viewer-dialog" class="viewer-dialog" aria-label="File viewer" tabindex="-1">
   <div class="chrome">
     <span class="chrome-title" id="viewer-title"></span>
     <span class="chrome-actions">
@@ -34,5 +28,5 @@ import { withBase } from '../lib/base';
 
 <script>
   import { setupViewer } from '../lib/setup-viewer';
-  document.addEventListener('astro:page-load', () => void setupViewer());
+  setupViewer();
 </script>

@@ -57,42 +57,90 @@ test('no horizontal overflow on the grid or in the viewer', async ({ page }) => 
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
-test('content scrolls inside the surface, not the page body', async ({ page }) => {
-  await page.setViewportSize({ width: 380, height: 430 });
+test('content scrolls inside the surface, not the page body', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 640 });
   await openFile(page, 'readme.md');
 
-  const metrics = await page.evaluate(() => {
-    const viewer = document.querySelector('#viewer');
-    const surface = viewer?.shadowRoot?.querySelector('[part="surface"]');
-    if (!(surface instanceof HTMLElement)) return undefined;
-    surface.scrollTop = 9999;
-    return {
-      scrollable: surface.scrollHeight > surface.clientHeight,
-      scrolled: surface.scrollTop,
-      bodyOverflowY: getComputedStyle(document.body).overflowY,
-    };
-  });
-
-  expect(metrics?.scrollable).toBe(true);
-  expect(metrics?.scrolled).toBeGreaterThan(0);
+  const surface = page.locator(SEL.surface);
+  // The surface (not the body) is the working scroll container on a phone.
+  const before = await surface.evaluate((el) => ({
+    scrollable: el.scrollHeight > el.clientHeight,
+    bodyOverflowY: getComputedStyle(document.body).overflowY,
+    bodyScrollable: document.body.scrollHeight > document.body.clientHeight,
+  }));
+  expect(before.scrollable).toBe(true);
   // Background must not be the scroll container while the modal is open.
-  expect(metrics?.bodyOverflowY).toBe('clip');
+  expect(before.bodyOverflowY).toBe('clip');
+
+  // Programmatic scroll moves the surface (the touch scroll container).
+  await surface.evaluate((el) => {
+    el.scrollTop = 9999;
+  });
+  await expect.poll(() => surface.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+  // A real input gesture over the surface also moves it (and not the body).
+  await surface.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  const box = await surface.boundingBox();
+  expect(box).not.toBeNull();
+  const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const cy = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  if (testInfo.project.name === 'mobile') {
+    // Real touch swipe via CDP — the browser scrolls the surface for real.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: cx, y: cy + 200 }],
+    });
+    for (let y = cy + 150; y >= cy - 200; y -= 50) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx, y }] });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await cdp.detach();
+  } else {
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, 600);
+  }
+  await expect.poll(() => surface.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+  const bodyTop = await page.evaluate(
+    () => document.documentElement.scrollTop || document.body.scrollTop,
+  );
+  expect(bodyTop).toBe(0);
 });
 
-test('paging keeps the same dialog mounted (no flicker)', async ({ page }) => {
+test('paging keeps the same dialog mounted (no flicker, no nav)', async ({ page }) => {
   await openFile(page, 'readme.md');
   const dialog = await page.locator(SEL.dialog).elementHandle();
   expect(dialog).not.toBeNull();
+  await page.evaluate(() => Reflect.set(globalThis, '__navmark', true));
 
-  await page.locator(SEL.surface).focus();
-  await page.keyboard.press('ArrowRight');
+  await page.locator(SEL.viewer).hover();
+  await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page).toHaveURL(/\/viewer\/notes$/);
+  await expect(page.locator('#viewer-title')).toHaveText('notes.txt');
   await expect(page.locator(SEL.dialog)).toBeVisible();
 
-  // The very same dialog node survived the route change and stayed open.
-  const survived = await dialog?.evaluate((el) => el.isConnected && el instanceof HTMLDialogElement && el.open);
+  // No document navigation, and the very same dialog node stayed open.
+  expect(await page.evaluate(() => Reflect.get(globalThis, '__navmark') === true)).toBe(true);
+  const survived = await dialog?.evaluate(
+    (el) => el.isConnected && el instanceof HTMLDialogElement && el.open,
+  );
   expect(survived).toBe(true);
+});
+
+test('opening a file does not shift the masthead heading', async ({ page }) => {
+  // Scope to the masthead; provider content may render its own <h1>.
+  const heading = page.locator('main.page .masthead h1');
+  const before = await heading.boundingBox();
+  await openFile(page, 'readme.md');
+  const after = await heading.boundingBox();
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeLessThanOrEqual(0.5);
+  expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(0.5);
 });
 
 test('closing the viewer does not shift the page layout', async ({ page }) => {

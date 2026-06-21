@@ -2,10 +2,10 @@ import '@web-file-reader/viewer';
 import '@web-file-reader/navigation';
 import '@web-file-reader/settings';
 import { canGoNext, canGoPrev, createPaging, goNext, goPrev } from '@web-file-reader/core';
+import type { FileDescriptor } from '@web-file-reader/core';
 import type { WfrViewer } from '@web-file-reader/viewer';
 import type { WfrViewerNav } from '@web-file-reader/navigation';
 import type { WfrSettingsPanel } from '@web-file-reader/settings';
-import { navigate } from 'astro:transitions/client';
 import { FILES, fileById, indexOfFile } from './files';
 import { withBase } from './base';
 import { getRegistry } from './registry';
@@ -18,10 +18,9 @@ interface Shell {
   readonly panel: WfrSettingsPanel;
 }
 
-// The shell persists across navigations, so listeners are wired exactly once and
-// read mutable route state captured here rather than per-page closures.
+// The shell is created once and never removed/reinserted: open/page/close are
+// pure client-side state changes (history + DOM props), with NO MPA navigation.
 let wired = false;
-let currentIndex = -1;
 let currentProviderId: string | undefined;
 
 const shell = (): Shell | undefined => {
@@ -33,36 +32,130 @@ const shell = (): Shell | undefined => {
   return { dialog, viewer, nav, panel };
 };
 
-const isViewerRoute = (): boolean => location.pathname.includes('/viewer/');
+const fileIdFromPath = (pathname: string): string | undefined =>
+  pathname.includes('/viewer/') ? pathname.split('/').filter(Boolean).pop() : undefined;
 
-const currentFileId = (): string | undefined => location.pathname.split('/').filter(Boolean).pop();
+const prefersReducedMotion = (): boolean =>
+  globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
-const goRelative = (delta: number): void => {
-  const paging = createPaging(currentIndex, FILES.length);
-  const next = delta < 0 ? goPrev(paging) : goNext(paging);
-  const target = FILES[next.index];
-  if (target !== undefined) void navigate(withBase(`viewer/${target.id}`));
+/** Apply content for `file` to the shell in place. Never touches dialog open state. */
+const applyFile = async (s: Shell, file: FileDescriptor): Promise<void> => {
+  const index = indexOfFile(file.id);
+  const registry = getRegistry();
+  s.viewer.registry = registry;
+  s.viewer.file = file;
+
+  document.getElementById('viewer-title')?.replaceChildren(file.name);
+  s.dialog.setAttribute('aria-label', `Viewing ${file.name}`);
+  document.title = `${file.name} — Web File Reader`;
+
+  const paging = createPaging(index, FILES.length);
+  s.nav.canPrev = canGoPrev(paging);
+  s.nav.canNext = canGoNext(paging);
+
+  // Reset the settings disclosure for the new file.
+  s.panel.setAttribute('hidden', '');
+  document.getElementById('settings-button')?.setAttribute('aria-expanded', 'false');
+
+  const provider = registry.resolve(file);
+  currentProviderId = provider?.id;
+  if (provider !== undefined) {
+    const providerModule = await registry.load(file);
+    if (providerModule !== undefined) {
+      const settings = loadSettings(provider.id, providerModule.settingsSchema);
+      s.panel.schema = providerModule.settingsSchema;
+      s.panel.settings = settings;
+      s.viewer.settings = settings;
+    }
+  }
 };
 
-const wireOnce = ({ dialog, viewer, nav, panel }: Shell): void => {
+/** Update viewer content for `file`, animating in place when supported. */
+const swapContent = (s: Shell, file: FileDescriptor): void => {
+  const run = (): Promise<void> => applyFile(s, file);
+  const startViewTransition = document.startViewTransition?.bind(document);
+  if (startViewTransition !== undefined && !prefersReducedMotion()) {
+    startViewTransition(run);
+    return;
+  }
+  void run();
+};
+
+/** Open the dialog (once) and show `file`, pushing a deep-linkable URL. */
+const open = (s: Shell, id: string, push: boolean): void => {
+  const file = fileById(id);
+  if (file === undefined) return;
+  if (push) history.pushState({ wfr: id }, '', withBase(`viewer/${id}`));
+  void applyFile(s, file);
+  if (!s.dialog.open) {
+    s.dialog.showModal();
+    // showModal auto-focuses the first control (a stray ring for pointer users).
+    // Move focus to the dialog itself; keyboard users still Tab into controls.
+    s.dialog.focus();
+  }
+};
+
+/** Page to the prev/next neighbour in place; the dialog stays open. */
+const page = (s: Shell, delta: number): void => {
+  const id = fileIdFromPath(location.pathname);
+  const index = indexOfFile(id);
+  if (index < 0) return;
+  const paging = createPaging(index, FILES.length);
+  const next = delta < 0 ? goPrev(paging) : goNext(paging);
+  const target = FILES[next.index];
+  if (target === undefined || target.id === id) return;
+  history.pushState({ wfr: target.id }, '', withBase(`viewer/${target.id}`));
+  swapContent(s, target);
+};
+
+/** Close the viewer client-side and return to the grid URL. */
+const close = (s: Shell, push: boolean): void => {
+  if (push) history.pushState({}, '', withBase(''));
+  document.title = 'Web File Reader';
+  if (s.dialog.open) s.dialog.close();
+};
+
+/** Re-sync the shell to the current URL (deep link, refresh, back/forward). */
+const syncToLocation = (s: Shell): void => {
+  const id = fileIdFromPath(location.pathname);
+  const file = id === undefined ? undefined : fileById(id);
+  if (file === undefined) {
+    close(s, false);
+    return;
+  }
+  open(s, file.id, false);
+};
+
+const wireOnce = (s: Shell): void => {
   if (wired) return;
   wired = true;
+  const { dialog, viewer, nav, panel } = s;
 
   nav.target = viewer;
-  nav.addEventListener('wfr-prev', () => goRelative(-1));
-  nav.addEventListener('wfr-next', () => goRelative(1));
+  nav.addEventListener('wfr-prev', () => page(s, -1));
+  nav.addEventListener('wfr-next', () => page(s, 1));
+
+  // Grid tile activation bubbles to the document; open client-side.
+  document.addEventListener('wfr-open', (event) => {
+    if (event instanceof CustomEvent) open(s, event.detail.file.id, true);
+  });
 
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
-    void navigate(withBase(''));
+    close(s, true);
   });
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) void navigate(withBase(''));
+    if (event.target === dialog) close(s, true);
   });
 
-  // Fullscreen the whole dialog (not just the viewer) so the toolbar — and the
-  // way back out — stays visible. On mobile the dialog already fills the screen,
-  // so the button is hidden there (see styles).
+  // The Close control keeps a real href for no-JS; intercept it client-side.
+  document.getElementById('close-button')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    close(s, true);
+  });
+
+  // Fullscreen the whole dialog (not just the viewer) so the toolbar stays
+  // visible. Hidden on mobile via CSS (the dialog already fills the screen).
   document.getElementById('fs-button')?.addEventListener('click', () => {
     if (document.fullscreenElement !== null) {
       void document.exitFullscreen();
@@ -79,63 +172,20 @@ const wireOnce = ({ dialog, viewer, nav, panel }: Shell): void => {
   });
 
   panel.addEventListener('wfr-settings-change', (event) => {
-    if (currentProviderId !== undefined) saveSettings(currentProviderId, event.detail.settings);
-    viewer.settings = event.detail.settings;
-  });
-};
-
-const closeShell = (dialog: HTMLDialogElement): void => {
-  if (dialog.open) dialog.close();
-};
-
-const syncRoute = async ({ dialog, viewer, nav, panel }: Shell): Promise<void> => {
-  const file = isViewerRoute() ? fileById(currentFileId()) : undefined;
-  if (file === undefined) {
-    closeShell(dialog);
-    return;
-  }
-
-  currentIndex = indexOfFile(file.id);
-  const registry = getRegistry();
-  viewer.registry = registry;
-  viewer.file = file;
-
-  document.getElementById('viewer-title')?.replaceChildren(file.name);
-  dialog.setAttribute('aria-label', `Viewing ${file.name}`);
-
-  const paging = createPaging(currentIndex, FILES.length);
-  nav.canPrev = canGoPrev(paging);
-  nav.canNext = canGoNext(paging);
-
-  // Reset the settings disclosure for the new file.
-  panel.setAttribute('hidden', '');
-  document.getElementById('settings-button')?.setAttribute('aria-expanded', 'false');
-
-  const provider = registry.resolve(file);
-  currentProviderId = provider?.id;
-  if (provider !== undefined) {
-    const providerModule = await registry.load(file);
-    if (providerModule !== undefined) {
-      const settings = loadSettings(provider.id, providerModule.settingsSchema);
-      panel.schema = providerModule.settingsSchema;
-      panel.settings = settings;
-      viewer.settings = settings;
+    if (event instanceof CustomEvent) {
+      if (currentProviderId !== undefined) saveSettings(currentProviderId, event.detail.settings);
+      viewer.settings = event.detail.settings;
     }
-  }
+  });
 
-  if (!dialog.open) {
-    dialog.showModal();
-    // showModal auto-focuses the first control (a visible focus ring for pointer
-    // users that looks like a bug). Move focus to the dialog itself instead;
-    // keyboard users still Tab into the controls (which then show rings).
-    dialog.focus();
-  }
+  // Back/forward must open the right file or close — re-sync from the URL.
+  globalThis.addEventListener('popstate', () => syncToLocation(s));
 };
 
-/** Wire (once) and sync the persistent viewer shell to the current route. */
-export const setupViewer = async (): Promise<void> => {
+/** Wire (once) and sync the persistent viewer shell to the current URL. */
+export const setupViewer = (): void => {
   const current = shell();
   if (current === undefined) return;
   wireOnce(current);
-  await syncRoute(current);
+  syncToLocation(current);
 };

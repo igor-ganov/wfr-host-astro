@@ -1,6 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { SEL } from './selectors';
 
+// A full document navigation wipes any state we set on the live page; we mark
+// the page and later assert the mark survived (proving no MPA navigation).
+const markNav = (page: Page): Promise<void> =>
+  page.evaluate(() => Reflect.set(globalThis, '__navmark', true));
+const navMarkSurvived = (page: Page): Promise<boolean> =>
+  page.evaluate(() => Reflect.get(globalThis, '__navmark') === true);
+
 const open = async (page: Page, name: string): Promise<void> => {
   await page.getByRole('button', { name }).click();
   await expect(page.locator(SEL.dialog)).toBeVisible();
@@ -48,14 +55,34 @@ test('opening a file does not leave a control focused (no stray focus ring)', as
   expect(focusedId).toBe('viewer-dialog');
 });
 
-test('Next button pages to the next file and swaps content', async ({ page }) => {
+test('Next button pages to the next file in the SAME dialog (no nav, no flash)', async ({
+  page,
+}) => {
   await open(page, 'readme.md');
+  // Mark the live document; a full navigation would wipe this flag.
+  await markNav(page);
+  const dialog = await page.locator(SEL.dialog).elementHandle();
+
   await revealNav(page);
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page).toHaveURL(/\/viewer\/notes$/);
   await expect(page.locator('#viewer-title')).toHaveText('notes.txt');
   await expect(page.locator(SEL.dialog)).toBeVisible();
+
+  // No document navigation happened, and the very same dialog node is still open.
+  expect(await navMarkSurvived(page)).toBe(true);
+  const sameOpenNode = await dialog?.evaluate(
+    (el) => el.isConnected && el instanceof HTMLDialogElement && el.open,
+  );
+  expect(sameOpenNode).toBe(true);
+});
+
+test('clicking a tile opens the viewer client-side (no document navigation)', async ({ page }) => {
+  await markNav(page);
+  await open(page, 'readme.md');
+  await expect(page).toHaveURL(/\/viewer\/readme$/);
+  expect(await navMarkSurvived(page)).toBe(true);
 });
 
 test('changing a setting re-renders the viewer', async ({ page }) => {
