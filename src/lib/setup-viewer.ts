@@ -35,30 +35,15 @@ const shell = (): Shell | undefined => {
 const fileIdFromPath = (pathname: string): string | undefined =>
   pathname.includes('/viewer/') ? pathname.split('/').filter(Boolean).pop() : undefined;
 
-const prefersReducedMotion = (): boolean =>
-  globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-
 /** Apply content for `file` to the shell in place. Never touches dialog open state. */
 const applyFile = async (s: Shell, file: FileDescriptor): Promise<void> => {
-  const index = indexOfFile(file.id);
   const registry = getRegistry();
-  s.viewer.registry = registry;
-  s.viewer.file = file;
-
-  document.getElementById('viewer-title')?.replaceChildren(file.name);
-  s.dialog.setAttribute('aria-label', `Viewing ${file.name}`);
-  document.title = `${file.name} — Web File Reader`;
-
-  const paging = createPaging(index, FILES.length);
-  s.nav.canPrev = canGoPrev(paging);
-  s.nav.canNext = canGoNext(paging);
-
-  // Reset the settings disclosure for the new file.
-  s.panel.setAttribute('hidden', '');
-  document.getElementById('settings-button')?.setAttribute('aria-expanded', 'false');
-
   const provider = registry.resolve(file);
   currentProviderId = provider?.id;
+
+  // Resolve the provider's settings BEFORE swapping content, so `settings` and
+  // `file` apply in a single Lit update — one render, no double-load (which on a
+  // slow connection could leave the loading overlay stuck after a swipe).
   if (provider !== undefined) {
     const providerModule = await registry.load(file);
     if (providerModule !== undefined) {
@@ -68,17 +53,30 @@ const applyFile = async (s: Shell, file: FileDescriptor): Promise<void> => {
       s.viewer.settings = settings;
     }
   }
+  s.viewer.registry = registry;
+  s.viewer.file = file;
+
+  document.getElementById('viewer-title')?.replaceChildren(file.name);
+  s.dialog.setAttribute('aria-label', `Viewing ${file.name}`);
+  document.title = `${file.name} — Web File Reader`;
+
+  const paging = createPaging(indexOfFile(file.id), FILES.length);
+  s.nav.canPrev = canGoPrev(paging);
+  s.nav.canNext = canGoNext(paging);
+
+  // Reset the settings disclosure for the new file.
+  s.panel.setAttribute('hidden', '');
+  document.getElementById('settings-button')?.setAttribute('aria-expanded', 'false');
 };
 
-/** Update viewer content for `file`, animating in place when supported. */
+/**
+ * Update viewer content for `file` in place. We deliberately do NOT wrap this in
+ * `document.startViewTransition`: the transition snapshots/freezes the surface
+ * during the async provider load, which on real devices looked like a stuck
+ * loading overlay after the first swipe.
+ */
 const swapContent = (s: Shell, file: FileDescriptor): void => {
-  const run = (): Promise<void> => applyFile(s, file);
-  const startViewTransition = document.startViewTransition?.bind(document);
-  if (startViewTransition !== undefined && !prefersReducedMotion()) {
-    startViewTransition(run);
-    return;
-  }
-  void run();
+  void applyFile(s, file);
 };
 
 /** Open the dialog (once) and show `file`, pushing a deep-linkable URL. */

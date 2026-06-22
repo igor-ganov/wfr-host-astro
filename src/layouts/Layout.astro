@@ -289,8 +289,11 @@ const { title = 'Web File Reader' } = Astro.props;
         dialog#viewer-dialog {
           inline-size: 100vw;
           max-inline-size: 100vw;
-          block-size: 100dvh;
-          max-block-size: 100dvh;
+          /* Use the SMALL viewport height (svh): it excludes the mobile
+             address bar, so the modal always fits and never overflows under
+             the bar (dvh/100vh could exceed the visible area on first paint). */
+          block-size: 100svh;
+          max-block-size: 100svh;
           border: none;
           border-radius: 0;
         }
