@@ -20,6 +20,28 @@ const { title = 'Web File Reader' } = Astro.props;
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
     <title>{title}</title>
+    <script is:inline>
+      // Real-device viewport fit: a top-layer <dialog> is sized against the
+      // LARGE viewport (ignores the mobile address bar), so its bottom slides
+      // off-screen. Track the actual visible area via the VisualViewport API
+      // and expose it as --app-vh; the mobile dialog binds its height to it.
+      (() => {
+        const root = document.documentElement;
+        const vv = window.visualViewport;
+        const sync = () => {
+          const h = vv ? vv.height : window.innerHeight;
+          root.style.setProperty('--app-vh', h + 'px');
+          root.style.setProperty('--app-vt', (vv ? vv.offsetTop : 0) + 'px');
+        };
+        sync();
+        if (vv) {
+          vv.addEventListener('resize', sync);
+          vv.addEventListener('scroll', sync);
+        }
+        window.addEventListener('resize', sync);
+        window.addEventListener('orientationchange', sync);
+      })();
+    </script>
   </head>
   <body>
     <slot />
@@ -289,11 +311,15 @@ const { title = 'Web File Reader' } = Astro.props;
         dialog#viewer-dialog {
           inline-size: 100vw;
           max-inline-size: 100vw;
-          /* Use the SMALL viewport height (svh): it excludes the mobile
-             address bar, so the modal always fits and never overflows under
-             the bar (dvh/100vh could exceed the visible area on first paint). */
-          block-size: 100svh;
-          max-block-size: 100svh;
+          /* Bind to the ACTUAL visible height measured via VisualViewport
+             (--app-vh), pinned to its top offset (--app-vt). svh is only the
+             fallback before the script runs — on real devices the top-layer
+             dialog otherwise takes the large-viewport height and its bottom
+             slides under the address bar. */
+          block-size: var(--app-vh, 100svh);
+          max-block-size: var(--app-vh, 100svh);
+          inset-block-start: var(--app-vt, 0px);
+          margin-block: 0;
           border: none;
           border-radius: 0;
         }
