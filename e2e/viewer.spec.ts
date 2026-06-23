@@ -57,6 +57,41 @@ test('no horizontal overflow on the grid or in the viewer', async ({ page }) => 
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
+// Measure horizontal overflow *inside* the viewer's scroll surface and whether
+// the page card itself is pushed past the surface — a content-box page card
+// (the shadow does not inherit the box-sizing reset) overflowed here and clipped
+// the code block's right edge on a phone.
+const surfaceClip = (page: Page): Promise<{ surfaceOverflow: number; cardOverflow: number; preOverflow: number }> =>
+  page.evaluate(() => {
+    const sr = document.querySelector('#viewer')?.shadowRoot;
+    const surface = sr?.querySelector('[part="surface"]');
+    const card = sr?.querySelector('[part="page"]');
+    const pre = sr?.querySelector('pre');
+    const cw = surface?.clientWidth ?? 0;
+    const cardRight = card?.getBoundingClientRect().right ?? 0;
+    const surfRight = surface?.getBoundingClientRect().right ?? 0;
+    return {
+      surfaceOverflow: (surface?.scrollWidth ?? 0) - cw,
+      cardOverflow: Math.round(cardRight - surfRight),
+      preOverflow: pre === null || pre === undefined ? 0 : pre.scrollWidth - pre.clientWidth,
+    };
+  });
+
+for (const width of [360, 393, 412]) {
+  test(`code block is not clipped horizontally at ${width}px wide`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 780 });
+    // readme.md renders a fenced code block — the case that was clipped.
+    await openFile(page, 'readme.md');
+    await expect(page.locator(`${SEL.page} pre`)).toBeVisible();
+    const { surfaceOverflow, cardOverflow, preOverflow } = await surfaceClip(page);
+    // The card must not extend past the scroll surface (no off-screen clip).
+    expect(surfaceOverflow).toBeLessThanOrEqual(0);
+    expect(cardOverflow).toBeLessThanOrEqual(0);
+    // Code wraps, so the <pre> itself has no hidden horizontal scroll.
+    expect(preOverflow).toBeLessThanOrEqual(1);
+  });
+}
+
 test('open modal does not leave the document vertically scrollable (short viewport)', async ({
   page,
 }) => {
