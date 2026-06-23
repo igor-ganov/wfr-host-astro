@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <genre>computers</genre>
+      <author><first-name>Web</first-name><last-name>Reader</last-name></author>
+      <book-title>A Short FictionBook</book-title>
+      <lang>en</lang>
+    </title-info>
+  </description>
+  <body>
+    <title><p>A Short FictionBook</p></title>
+    <section>
+      <title><p>Chapter One — Beginnings</p></title>
+      <p>This is a sample <emphasis>FictionBook</emphasis> (FB2) file rendered by the
+      web-file-reader FB2 provider. Each top-level section becomes its own page.</p>
+      <p>FB2 is an XML format, so the provider parses it and maps elements such as
+      <strong>strong</strong>, <emphasis>emphasis</emphasis> and paragraphs to safe,
+      sanitized HTML.</p>
+      <subtitle>A short verse</subtitle>
+      <poem>
+        <stanza>
+          <v>Bytes become letters,</v>
+          <v>letters become a story —</v>
+          <v>the reader unfolds.</v>
+        </stanza>
+      </poem>
+    </section>
+    <section>
+      <title><p>Chapter Two — Onwards</p></title>
+      <p>Use the on-screen arrows or the keyboard to page between sections. The viewer
+      keeps a single scrollable surface in both normal and fullscreen modes.</p>
+      <epigraph><p>Simplicity is the soul of efficiency.</p><text-author>— Austin Freeman</text-author></epigraph>
+      <p>That is the end of this short example.</p>
+    </section>
+  </body>
+</FictionBook>

@@ -47,6 +47,47 @@ export const FILES: readonly FileDescriptor[] = [
     source: { kind: 'url', url: withBase('samples/doc.pdf') },
     previewIconUrl: withBase('icons/file-pdf.svg'),
   },
+  {
+    id: 'report-pdf',
+    name: 'report.pdf',
+    extension: 'pdf',
+    mimeType: 'application/pdf',
+    source: { kind: 'url', url: withBase('samples/report.pdf') },
+    previewIconUrl: withBase('icons/file-pdf.svg'),
+  },
+  {
+    id: 'photo',
+    name: 'photo.png',
+    extension: 'png',
+    mimeType: 'image/png',
+    source: { kind: 'url', url: withBase('samples/photo.png') },
+    // An image file shows its own thumbnail as the tile pictogram.
+    previewIconUrl: withBase('samples/photo.png'),
+  },
+  {
+    id: 'book',
+    name: 'book.fb2',
+    extension: 'fb2',
+    mimeType: 'application/x-fictionbook+xml',
+    source: { kind: 'url', url: withBase('samples/book.fb2') },
+    previewIconUrl: withBase('icons/file-fb2.svg'),
+  },
+  {
+    id: 'report-docx',
+    name: 'report.docx',
+    extension: 'docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    source: { kind: 'url', url: withBase('samples/report.docx') },
+    previewIconUrl: withBase('icons/file-docx.svg'),
+  },
+  {
+    id: 'bundle',
+    name: 'bundle.zip',
+    extension: 'zip',
+    mimeType: 'application/zip',
+    source: { kind: 'url', url: withBase('samples/bundle.zip') },
+    previewIconUrl: withBase('icons/file-zip.svg'),
+  },
 ];
 
 /** Look up a file by id. */

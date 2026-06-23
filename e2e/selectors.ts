@@ -14,4 +14,15 @@ export const SEL = {
 };
 
 // File names double as accessible button labels in the grid.
-export const FILE_NAMES = ['readme.md', 'notes.txt', 'sales.csv', 'logo.svg', 'doc.pdf'];
+export const FILE_NAMES = [
+  'readme.md',
+  'notes.txt',
+  'sales.csv',
+  'logo.svg',
+  'doc.pdf',
+  'report.pdf',
+  'photo.png',
+  'book.fb2',
+  'report.docx',
+  'bundle.zip',
+];

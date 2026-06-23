@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
+    "fflate": "^0.8.2",
     "lighthouse": "^12.3.0",
     "playwright-lighthouse": "^4.0.0"
   },
@@ -25,7 +26,10 @@
     "@web-file-reader/core": "workspace:*",
     "@web-file-reader/file-grid": "workspace:*",
     "@web-file-reader/navigation": "workspace:*",
+    "@web-file-reader/provider-archive": "workspace:*",
     "@web-file-reader/provider-csv": "workspace:*",
+    "@web-file-reader/provider-docx": "workspace:*",
+    "@web-file-reader/provider-fb2": "workspace:*",
     "@web-file-reader/provider-image": "workspace:*",
     "@web-file-reader/provider-markdown": "workspace:*",
     "@web-file-reader/provider-pdf": "workspace:*",

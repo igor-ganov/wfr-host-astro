@@ -49,6 +49,46 @@ test('renders real content for each provider', async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+const pageHtml = (page: Page): Promise<string> =>
+  page.evaluate(
+    () => document.querySelector('#viewer')?.shadowRoot?.querySelector('[part="pages"]')?.innerHTML ?? '',
+  );
+
+test('renders content for the new providers (pdf-multi, png, fb2, docx, zip)', async ({ page }) => {
+  // Multi-page PDF: more than one page surface.
+  await open(page, 'report.pdf');
+  await expect.poll(() => page.locator(SEL.page).count()).toBeGreaterThan(1);
+
+  await page.getByRole('link', { name: 'Close viewer' }).click();
+  await open(page, 'photo.png');
+  await expect(page.locator(`${SEL.page} img`)).toBeVisible();
+
+  await page.getByRole('link', { name: 'Close viewer' }).click();
+  await open(page, 'book.fb2');
+  // FB2 pages one section per page; emphasis is mapped to <em>.
+  await expect.poll(() => page.locator(SEL.page).count()).toBeGreaterThan(1);
+  expect(await pageHtml(page)).toContain('<em>');
+
+  await page.getByRole('link', { name: 'Close viewer' }).click();
+  await open(page, 'report.docx');
+  await expect(page.locator(`${SEL.page} h1`)).toHaveText('Quarterly Report');
+  expect(await pageHtml(page)).toContain('<strong>');
+
+  await page.getByRole('link', { name: 'Close viewer' }).click();
+  await open(page, 'bundle.zip');
+  await expect(page.locator(`${SEL.page} table`)).toBeVisible();
+  expect(await pageHtml(page)).toContain('readme.md');
+});
+
+test('the download button downloads the current file', async ({ page }) => {
+  await open(page, 'sales.csv');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download file' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('sales.csv');
+});
+
 test('opening a file does not leave a control focused (no stray focus ring)', async ({ page }) => {
   await open(page, 'readme.md');
   const focusedId = await page.evaluate(() => document.activeElement?.id ?? '');

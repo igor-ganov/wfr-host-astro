@@ -10,6 +10,7 @@ import { FILES, fileById, indexOfFile } from './files';
 import { withBase } from './base';
 import { getRegistry } from './registry';
 import { loadSettings, saveSettings } from './settings-store';
+import { downloadFile } from './download';
 
 interface Shell {
   readonly dialog: HTMLDialogElement;
@@ -160,6 +161,12 @@ const wireOnce = (s: Shell): void => {
     } else if (typeof dialog.requestFullscreen === 'function') {
       void dialog.requestFullscreen().catch(() => {});
     }
+  });
+
+  // Download the file currently shown in the viewer.
+  document.getElementById('download-button')?.addEventListener('click', () => {
+    const file = fileById(fileIdFromPath(location.pathname));
+    if (file !== undefined) void downloadFile(file);
   });
 
   const settingsButton = document.getElementById('settings-button');
