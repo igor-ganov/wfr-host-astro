@@ -126,6 +126,25 @@ const swipeSurface = async (page: Page, dir: -1 | 1): Promise<void> => {
   await cdp.detach();
 };
 
+// Dispatch a mostly-vertical drag (a scroll gesture) with slight horizontal drift.
+const dragVertical = async (page: Page): Promise<void> => {
+  const box = await page.locator(SEL.surface).boundingBox();
+  const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const y0 = (box?.y ?? 0) + (box?.height ?? 0) * 0.75;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: y0 }] });
+  for (let i = 1; i <= 8; i += 1) {
+    // Vertical travel dominates, but drift horizontally too (the case that used
+    // to mis-fire a page turn).
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: cx + i * 8, y: y0 - i * 28 }],
+    });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+};
+
 test('mobile: a single tap toggles the paging controls', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
   // Open via a real touch tap: a mouse .click() would leave the cursor hovering
@@ -155,6 +174,17 @@ test('mobile: horizontal swipe pages between files', async ({ page }, testInfo) 
 
   // Swipe right → previous file.
   await swipeSurface(page, 1);
+  await expect(page).toHaveURL(/\/viewer\/readme$/);
+  await expect(page.locator('#viewer-title')).toHaveText('readme.md');
+});
+
+test('mobile: a vertical scroll gesture does not page', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  await page.setViewportSize({ width: 360, height: 640 });
+  await open(page, 'readme.md');
+  // A mostly-vertical drag (with horizontal drift) must keep the same file.
+  await dragVertical(page);
+  await page.waitForTimeout(300);
   await expect(page).toHaveURL(/\/viewer\/readme$/);
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
