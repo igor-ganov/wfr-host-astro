@@ -57,6 +57,30 @@ test('no horizontal overflow on the grid or in the viewer', async ({ page }) => 
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
+test('open modal does not leave the document vertically scrollable (short viewport)', async ({
+  page,
+}) => {
+  // A short viewport makes the landing (masthead + grid) taller than the
+  // screen. With the modal open it must NOT scroll the document — otherwise a
+  // stray vertical scrollbar appears over the full-screen modal.
+  await page.setViewportSize({ width: 360, height: 480 });
+  await openFile(page, 'readme.md');
+
+  const doc = await page.evaluate(() => {
+    const de = document.documentElement;
+    return {
+      overflow: de.scrollHeight - window.innerHeight,
+      htmlOverflowY: getComputedStyle(de).overflowY,
+    };
+  });
+  expect(doc.htmlOverflowY).toBe('clip');
+
+  // The document must not actually scroll while the modal is open.
+  await page.evaluate(() => window.scrollTo(0, 9999));
+  const scrolled = await page.evaluate(() => window.scrollY);
+  expect(scrolled).toBe(0);
+});
+
 test('content scrolls inside the surface, not the page body', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await openFile(page, 'readme.md');

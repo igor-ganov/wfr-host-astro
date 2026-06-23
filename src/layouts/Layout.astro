@@ -80,10 +80,20 @@ const { title = 'Web File Reader' } = Astro.props;
         -webkit-font-smoothing: antialiased;
       }
 
-      /* Lock background scroll behind the open modal (gutter is reserved above,
-         so this toggle does not shift layout). */
+      /* Lock background scroll behind the open modal. `overflow: clip` on the
+         root does NOT stop viewport scrolling, so we also CONSTRAIN the body to
+         the viewport height: with the tall landing (masthead + grid) clamped,
+         <html> has nothing to scroll and no stray vertical scrollbar appears
+         over the full-screen modal. The clamped content sits behind the opaque
+         modal, so clipping it is invisible. Gutter is reserved above, so this
+         does not shift layout. */
+      html:has(dialog#viewer-dialog[open]),
       body:has(dialog#viewer-dialog[open]) {
         overflow: clip;
+      }
+      body:has(dialog#viewer-dialog[open]) {
+        block-size: var(--app-vh, 100svh);
+        min-block-size: 0;
       }
 
       .page {
