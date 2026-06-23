@@ -95,6 +95,70 @@ test('opening a file does not leave a control focused (no stray focus ring)', as
   expect(focusedId).toBe('viewer-dialog');
 });
 
+const navVisible = (page: Page): Promise<boolean> =>
+  page.locator('#nav').evaluate((el) => el.hasAttribute('visible'));
+
+// Dispatch a real touch tap at the centre of the scroll surface via CDP.
+const tapSurface = async (page: Page): Promise<void> => {
+  const box = await page.locator(SEL.surface).boundingBox();
+  const x = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+};
+
+// Dispatch a horizontal swipe across the surface (dir -1 = left/next, +1 = right/prev).
+const swipeSurface = async (page: Page, dir: -1 | 1): Promise<void> => {
+  const box = await page.locator(SEL.surface).boundingBox();
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const from = cx - dir * 100;
+  const to = cx + dir * 100;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
+  for (let i = 1; i <= 6; i += 1) {
+    const x = from + ((to - from) * i) / 6;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+};
+
+test('mobile: a single tap toggles the paging controls', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  // Open via a real touch tap: a mouse .click() would leave the cursor hovering
+  // the viewer after the dialog opens (pointerenter:mouse) and reveal controls —
+  // an emulation artifact that never happens on a touch device.
+  await page.getByRole('button', { name: 'readme.md' }).tap();
+  await expect(page.locator(SEL.dialog)).toBeVisible();
+  await expect(page.locator(SEL.page).first()).toBeVisible();
+  // Controls start hidden; a tap shows them, a second tap hides them.
+  await expect.poll(() => navVisible(page)).toBe(false);
+  await tapSurface(page);
+  await expect.poll(() => navVisible(page)).toBe(true);
+  await tapSurface(page);
+  await expect.poll(() => navVisible(page)).toBe(false);
+});
+
+test('mobile: horizontal swipe pages between files', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  await open(page, 'readme.md');
+
+  // Swipe left → next file, in the same dialog (no navigation).
+  await markNav(page);
+  await swipeSurface(page, -1);
+  await expect(page).toHaveURL(/\/viewer\/notes$/);
+  await expect(page.locator('#viewer-title')).toHaveText('notes.txt');
+  expect(await navMarkSurvived(page)).toBe(true);
+
+  // Swipe right → previous file.
+  await swipeSurface(page, 1);
+  await expect(page).toHaveURL(/\/viewer\/readme$/);
+  await expect(page.locator('#viewer-title')).toHaveText('readme.md');
+});
+
 test('Next button pages to the next file in the SAME dialog (no nav, no flash)', async ({
   page,
 }) => {
