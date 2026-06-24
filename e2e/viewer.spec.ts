@@ -31,7 +31,7 @@ test('rendered media fits the viewport width', async ({ page }) => {
 
   await openFile(page, 'logo.svg');
   const imageWidth = await page.evaluate(() => {
-    const img = document.querySelector('#viewer')?.shadowRoot?.querySelector('img');
+    const img = document.querySelector('.slide[aria-current="true"] wfr-viewer')?.shadowRoot?.querySelector('img');
     return img instanceof HTMLImageElement ? img.getBoundingClientRect().width : -1;
   });
   expect(imageWidth).toBeGreaterThan(0);
@@ -43,7 +43,7 @@ test('rendered media fits the viewport width', async ({ page }) => {
   await openFile(page, 'doc.pdf');
   const measureCanvas = (): Promise<number> =>
     page.evaluate(() => {
-      const canvas = document.querySelector('#viewer')?.shadowRoot?.querySelector('canvas');
+      const canvas = document.querySelector('.slide[aria-current="true"] wfr-viewer')?.shadowRoot?.querySelector('canvas');
       return canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect().width : 0;
     });
   // pdf.js paints the canvas asynchronously — poll until it has a width.
@@ -63,7 +63,7 @@ test('no horizontal overflow on the grid or in the viewer', async ({ page }) => 
 // the code block's right edge on a phone.
 const surfaceClip = (page: Page): Promise<{ surfaceOverflow: number; cardOverflow: number; preOverflow: number }> =>
   page.evaluate(() => {
-    const sr = document.querySelector('#viewer')?.shadowRoot;
+    const sr = document.querySelector('.slide[aria-current="true"] wfr-viewer')?.shadowRoot;
     const surface = sr?.querySelector('[part="surface"]');
     const card = sr?.querySelector('[part="page"]');
     const pre = sr?.querySelector('pre');

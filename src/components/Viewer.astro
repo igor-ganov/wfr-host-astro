@@ -3,10 +3,12 @@ import { withBase } from '../lib/base';
 ---
 
 <!--
-  The viewer shell is rendered on every route. It is created once on the client
-  and never removed/reinserted: open/page/close are pure client-side state
-  changes (history + DOM props), so a top-layer modal survives paging.
-  setup-viewer.ts drives open/close and the current file from the URL.
+  The viewer shell is rendered on every route and created once on the client.
+  The content area is a horizontal scroll-snap carousel of three panes
+  (prev / current / next). A native finger swipe scrolls the track; a
+  scroll-driven timeline animates the panes; the slide that lands in the
+  viewport becomes the current file. setup-viewer.ts wires it all and keeps the
+  URL/history/title in sync. open/page/close stay client-side (no MPA nav).
 -->
 <dialog id="viewer-dialog" class="viewer-dialog" aria-label="File viewer" tabindex="-1">
   <div class="chrome">
@@ -21,10 +23,16 @@ import { withBase } from '../lib/base';
     </span>
   </div>
 
-  <wfr-viewer id="viewer">
-    <wfr-settings-panel slot="toolbar" id="settings-panel" hidden></wfr-settings-panel>
-    <wfr-viewer-nav slot="controls" id="nav"></wfr-viewer-nav>
-  </wfr-viewer>
+  <wfr-settings-panel id="settings-panel" hidden></wfr-settings-panel>
+
+  <div class="stage">
+    <div id="track" class="track" role="group" aria-label="Files" tabindex="-1">
+      <section class="slide"><wfr-viewer class="pane"></wfr-viewer></section>
+      <section class="slide"><wfr-viewer class="pane"></wfr-viewer></section>
+      <section class="slide"><wfr-viewer class="pane"></wfr-viewer></section>
+    </div>
+    <wfr-viewer-nav id="nav"></wfr-viewer-nav>
+  </div>
 </dialog>
 
 <script>

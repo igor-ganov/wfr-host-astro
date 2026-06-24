@@ -1,12 +1,17 @@
 // Shared locator strings. Playwright CSS selectors pierce open shadow DOM, so
 // descendant selectors cross into the components' shadow roots.
+// The content area is a carousel; the active file is the slide marked
+// aria-current. Selectors target that slide's viewer (CSS pierces shadow DOM).
+export const CUR_VIEWER = '.slide[aria-current="true"] wfr-viewer';
+
 export const SEL = {
   grid: 'wfr-file-grid',
   tileImg: 'wfr-file-tile img',
   dialog: '#viewer-dialog',
-  viewer: '#viewer',
-  surface: '#viewer [part="surface"]',
-  page: '#viewer [part="page"]',
+  track: '#track',
+  viewer: CUR_VIEWER,
+  surface: `${CUR_VIEWER} [part="surface"]`,
+  page: `${CUR_VIEWER} [part="page"]`,
   nav: 'wfr-viewer-nav',
   closeLink: '#close-button',
   settingsBtn: '#settings-button',

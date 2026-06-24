@@ -42,7 +42,7 @@ test('renders real content for each provider', async ({ page }) => {
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const c = document.querySelector('#viewer')?.shadowRoot?.querySelector('canvas');
+        const c = document.querySelector('.slide[aria-current="true"] wfr-viewer')?.shadowRoot?.querySelector('canvas');
         return c instanceof HTMLCanvasElement ? Math.round(c.getBoundingClientRect().width) : 0;
       }),
     )
@@ -51,7 +51,7 @@ test('renders real content for each provider', async ({ page }) => {
 
 const pageHtml = (page: Page): Promise<string> =>
   page.evaluate(
-    () => document.querySelector('#viewer')?.shadowRoot?.querySelector('[part="pages"]')?.innerHTML ?? '',
+    () => document.querySelector('.slide[aria-current="true"] wfr-viewer')?.shadowRoot?.querySelector('[part="pages"]')?.innerHTML ?? '',
   );
 
 test('renders content for the new providers (pdf-multi, png, fb2, docx, zip)', async ({ page }) => {
@@ -109,21 +109,15 @@ const tapSurface = async (page: Page): Promise<void> => {
   await cdp.detach();
 };
 
-// Dispatch a horizontal swipe across the surface (dir -1 = left/next, +1 = right/prev).
-const swipeSurface = async (page: Page, dir: -1 | 1): Promise<void> => {
-  const box = await page.locator(SEL.surface).boundingBox();
-  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2;
-  const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2;
-  const from = cx - dir * 100;
-  const to = cx + dir * 100;
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
-  for (let i = 1; i <= 6; i += 1) {
-    const x = from + ((to - from) * i) / 6;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
-  }
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
+// Scroll the carousel track by one slide (dir -1 = prev, +1 = next). A real
+// finger produces this native scroll; synthetic CDP touch does not drive
+// scroll-snap reliably in headless, so we exercise our settle/commit logic by
+// scrolling the track directly (the touch→scroll mapping itself is the browser's
+// job, verified on-device).
+const pageByScroll = async (page: Page, dir: -1 | 1): Promise<void> => {
+  await page
+    .locator(SEL.track)
+    .evaluate((t, d) => t.scrollBy({ left: d * t.clientWidth, behavior: 'instant' }), dir);
 };
 
 // Dispatch a mostly-vertical drag (a scroll gesture) with slight horizontal drift.
@@ -161,19 +155,18 @@ test('mobile: a single tap toggles the paging controls', async ({ page }, testIn
   await expect.poll(() => navVisible(page)).toBe(false);
 });
 
-test('mobile: horizontal swipe pages between files', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+test('carousel: scrolling the track pages between files in the same dialog', async ({ page }) => {
   await open(page, 'readme.md');
 
-  // Swipe left → next file, in the same dialog (no navigation).
+  // Scroll to the next slide → commits to the next file, no document navigation.
   await markNav(page);
-  await swipeSurface(page, -1);
+  await pageByScroll(page, 1);
   await expect(page).toHaveURL(/\/viewer\/notes$/);
   await expect(page.locator('#viewer-title')).toHaveText('notes.txt');
   expect(await navMarkSurvived(page)).toBe(true);
 
-  // Swipe right → previous file.
-  await swipeSurface(page, 1);
+  // Scroll back → previous file.
+  await pageByScroll(page, -1);
   await expect(page).toHaveURL(/\/viewer\/readme$/);
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
@@ -189,26 +182,22 @@ test('mobile: a vertical scroll gesture does not page', async ({ page }, testInf
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
 
-test('mobile: swiping horizontally-scrollable content scrolls it, then pages at the edge', async ({
-  page,
-}, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+test('horizontally-scrollable content scrolls independently of the carousel', async ({ page }) => {
   // Narrow viewport so the CSV table is wider than its card (horizontal scroll).
   await page.setViewportSize({ width: 360, height: 640 });
   await open(page, 'sales.csv');
-  const cardScrollLeft = (): Promise<number> => page.locator(SEL.page).evaluate((el) => el.scrollLeft);
+  const card = page.locator(SEL.page);
   // Precondition: the card can actually scroll horizontally.
-  const maxScroll = await page.locator(SEL.page).evaluate((el) => el.scrollWidth - el.clientWidth);
-  expect(maxScroll).toBeGreaterThan(2);
+  expect(await card.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeGreaterThan(2);
 
-  // First horizontal swipe scrolls the table — it must NOT page.
-  await swipeSurface(page, -1);
-  await page.waitForTimeout(200);
-  expect(await cardScrollLeft()).toBeGreaterThan(0);
+  // Scrolling the wide content does not page (the browser scrolls the inner
+  // element under the finger before the carousel track).
+  await card.evaluate((el) => el.scrollBy({ left: 9999 }));
+  expect(await card.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   await expect(page).toHaveURL(/\/viewer\/sales$/);
 
-  // Now at the right edge: a further swipe-left can't scroll, so it pages.
-  await swipeSurface(page, -1);
+  // The carousel still pages via the track.
+  await pageByScroll(page, 1);
   await expect(page).toHaveURL(/\/viewer\/logo$/);
 });
 
@@ -248,7 +237,7 @@ test('changing a setting re-renders the viewer', async ({ page }) => {
   await expect(page.locator(`${SEL.page} h1`)).toBeVisible();
 
   await page.locator(SEL.settingsBtn).click();
-  await page.locator(`${SEL.viewer} select`).selectOption('source');
+  await page.locator('#settings-panel select').selectOption('source');
 
   // Source view shows the raw markdown in a <pre>, no rendered heading.
   await expect(page.locator(`${SEL.page} pre`)).toBeVisible();

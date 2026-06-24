@@ -230,14 +230,63 @@ const { title = 'Web File Reader' } = Astro.props;
         outline-offset: 2px;
       }
 
-      /* --- Viewer surface + pages (headless parts) --- */
-      wfr-viewer {
+      /* --- Carousel of file panes (prev / current / next) --- */
+      .stage {
         position: relative;
         flex: 1 1 auto;
         min-block-size: 0;
+        display: flex;
+      }
+      .track {
+        flex: 1 1 auto;
+        inline-size: 100%;
+        min-block-size: 0;
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior: contain;
+        scrollbar-width: none;
+      }
+      .track::-webkit-scrollbar {
+        display: none;
+      }
+      .slide {
+        flex: 0 0 100%;
+        inline-size: 100%;
+        min-inline-size: 0;
+        block-size: 100%;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+      }
+      .slide[hidden] {
+        display: none;
+      }
+      /* --- Viewer surface + pages (headless parts) --- */
+      wfr-viewer.pane {
+        flex: 1 1 auto;
+        min-inline-size: 0;
+        inline-size: 100%;
+        block-size: 100%;
+        position: relative;
+      }
+      wfr-viewer {
         --wfr-page-gap: 1rem;
         --wfr-fullscreen-bg: var(--bg);
         --wfr-focus-outline: var(--focus);
+      }
+      /* Scroll-driven timeline: each pane fades/scales as it crosses the track
+         viewport, so the motion follows the finger. Gated on support so panes
+         are never left dimmed where view-timeline is unavailable. */
+      @supports (animation-timeline: view()) {
+        .slide {
+          view-timeline: --wfr-slide inline;
+        }
+        wfr-viewer.pane {
+          animation: wfr-pane-fx linear both;
+          animation-timeline: --wfr-slide;
+        }
       }
       wfr-viewer::part(surface) {
         padding: 1rem;
@@ -371,6 +420,19 @@ const { title = 'Web File Reader' } = Astro.props;
           transform: none;
         }
       }
+      /* Neighbour panes are dimmed/shrunk; the centred one is full. Driven by
+         the slide's scroll-driven view-timeline (see @supports above). */
+      @keyframes wfr-pane-fx {
+        0%,
+        100% {
+          opacity: 0.55;
+          transform: scale(0.96);
+        }
+        50% {
+          opacity: 1;
+          transform: none;
+        }
+      }
 
       @media (prefers-reduced-motion: reduce) {
         ::view-transition-group(*),
@@ -381,6 +443,7 @@ const { title = 'Web File Reader' } = Astro.props;
         wfr-file-tile::part(button),
         dialog#viewer-dialog[open],
         dialog#viewer-dialog[open]::backdrop,
+        wfr-viewer.pane,
         wfr-viewer::part(page) {
           animation: none;
           transition: none;
