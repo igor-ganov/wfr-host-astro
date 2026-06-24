@@ -258,6 +258,9 @@ const { title = 'Web File Reader' } = Astro.props;
         scroll-snap-type: x mandatory;
         overscroll-behavior: contain;
         scrollbar-width: none;
+        /* Stop the browser from auto-adjusting scrollLeft when we reorder slides
+           during recentre — its correction fights ours and shows as a jump. */
+        overflow-anchor: none;
       }
       .track::-webkit-scrollbar {
         display: none;

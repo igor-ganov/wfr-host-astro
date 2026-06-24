@@ -191,9 +191,17 @@ const PAGE_SCROLL_MS = 180;
 const SNAP_TOLERANCE = 2; // px — treat as "on a snap point" within this
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
+// Gentle both-ends easing for the settle correction (no fast first frame).
+const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
-/** Animate `el.scrollLeft` to `to` over `ms`, then run `done`. */
-const animateScrollLeft = (el: HTMLElement, to: number, ms: number, done: () => void): void => {
+/** Animate `el.scrollLeft` to `to` over `ms` with `ease`, then run `done`. */
+const animateScrollLeft = (
+  el: HTMLElement,
+  to: number,
+  ms: number,
+  ease: (t: number) => number,
+  done: () => void,
+): void => {
   const from = el.scrollLeft;
   const distance = to - from;
   if (distance === 0 || ms <= 0) {
@@ -205,7 +213,7 @@ const animateScrollLeft = (el: HTMLElement, to: number, ms: number, done: () => 
   const step = (now: number): void => {
     started ??= now;
     const t = Math.min(1, (now - started) / ms);
-    el.scrollLeft = from + distance * easeOutCubic(t);
+    el.scrollLeft = from + distance * ease(t);
     if (t < 1) requestAnimationFrame(step);
     else done();
   };
@@ -244,7 +252,7 @@ const onSettle = (s: Shell): void => {
   settling = true;
   s.track.style.scrollSnapType = 'none';
   const ms = onSnap || prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
-  animateScrollLeft(s.track, target.offsetLeft, ms, () => {
+  animateScrollLeft(s.track, target.offsetLeft, ms, easeInOutCubic, () => {
     if (file.id !== currentId) commit(s, file, true);
     s.track.style.scrollSnapType = '';
     settling = false;
@@ -272,7 +280,7 @@ const page = (s: Shell, delta: number): void => {
   // restore it once we've landed/recentred on a snap point.
   s.track.style.scrollSnapType = 'none';
   const ms = prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
-  animateScrollLeft(s.track, target.offsetLeft, ms, () => {
+  animateScrollLeft(s.track, target.offsetLeft, ms, easeOutCubic, () => {
     settling = false;
     commit(s, file, true);
     s.track.style.scrollSnapType = '';
