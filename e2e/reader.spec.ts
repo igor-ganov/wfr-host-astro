@@ -263,6 +263,17 @@ test('Next button pages to the next file in the SAME dialog (no nav, no flash)',
   expect(sameOpenNode).toBe(true);
 });
 
+test('deep-linking to a file opens the viewer and reveals the landing', async ({ page }) => {
+  await page.goto('/viewer/readme');
+  // The dialog opens with content; the landing must not be left hidden.
+  await expect(page.locator(SEL.dialog)).toBeVisible();
+  await expect(page.locator(SEL.page).first()).toBeVisible();
+  const stillBooting = await page.evaluate(() =>
+    document.documentElement.hasAttribute('data-wfr-boot'),
+  );
+  expect(stillBooting).toBe(false);
+});
+
 test('clicking a tile opens the viewer client-side (no document navigation)', async ({ page }) => {
   await markNav(page);
   await open(page, 'readme.md');

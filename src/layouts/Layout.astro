@@ -27,6 +27,9 @@ const { title = 'Web File Reader' } = Astro.props;
       // and expose it as --app-vh; the mobile dialog binds its height to it.
       (() => {
         const root = document.documentElement;
+        // On a /viewer/ deep link, hide the landing until JS opens the dialog
+        // (set before first paint) so the file grid never flashes on reload.
+        if (location.pathname.includes('/viewer/')) root.dataset.wfrBoot = 'viewer';
         const vv = window.visualViewport;
         const sync = () => {
           const h = vv ? vv.height : window.innerHeight;
@@ -94,6 +97,14 @@ const { title = 'Web File Reader' } = Astro.props;
       body:has(dialog#viewer-dialog[open]) {
         block-size: var(--app-vh, 100svh);
         min-block-size: 0;
+      }
+
+      /* Deep-linking to /viewer/<id>: hide the landing until JS opens the dialog
+         so the file grid/icons never flash before the viewer appears. The boot
+         flag is set (and cleared) by script; cleared too if JS is disabled is
+         not possible, but the viewer requires JS anyway. */
+      html[data-wfr-boot='viewer'] .page {
+        visibility: hidden;
       }
 
       .page {

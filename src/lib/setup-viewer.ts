@@ -102,10 +102,15 @@ const markCurrent = (s: Shell, section: HTMLElement): void => {
   }
 };
 
-/** Centre the track on `section` instantly (no animation, no settle commit). */
+/** Centre the track on `section` instantly. Snap is disabled for the jump so
+ *  mandatory scroll-snap can't fight the reposition (which caused a jerk). */
 const centre = (s: Shell, section: HTMLElement): void => {
   settling = true;
-  s.track.scrollTo({ left: section.offsetLeft, behavior: 'auto' });
+  const { track } = s;
+  const prevSnap = track.style.scrollSnapType;
+  track.style.scrollSnapType = 'none';
+  track.scrollLeft = section.offsetLeft;
+  track.style.scrollSnapType = prevSnap;
   requestAnimationFrame(() => {
     settling = false;
   });
@@ -197,13 +202,19 @@ const settledFile = (s: Shell): FileDescriptor | undefined => {
   return best === undefined ? undefined : fileById(best.dataset['fileId']);
 };
 
+/** Commit the file the carousel has settled on (after snap finishes). */
+const onSettle = (s: Shell): void => {
+  if (settling) return;
+  const file = settledFile(s);
+  if (file !== undefined && file.id !== currentId) commit(s, file, true);
+};
+
+// `scrollend` fires once snap has fully settled — committing then keeps the
+// recentre seamless. The debounce is a fallback for browsers without it.
 const onScroll = (s: Shell): void => {
   if (settling) return;
   if (settleTimer !== undefined) clearTimeout(settleTimer);
-  settleTimer = setTimeout(() => {
-    const file = settledFile(s);
-    if (file !== undefined && file.id !== currentId) commit(s, file, true);
-  }, 90);
+  settleTimer = setTimeout(() => onSettle(s), 140);
 };
 
 // Button/keyboard paging animates ~2x faster than the browser's native smooth
@@ -295,6 +306,7 @@ const wireOnce = (s: Shell): void => {
   nav.addEventListener('wfr-next', () => page(s, 1));
 
   track.addEventListener('scroll', () => onScroll(s), { passive: true });
+  track.addEventListener('scrollend', () => onSettle(s), { passive: true });
 
   document.addEventListener('wfr-open', (event) => {
     const id = openIdFromEvent(event);
@@ -356,4 +368,7 @@ export const setupViewer = (): void => {
   if (current === undefined) return;
   wireOnce(current);
   syncToLocation(current);
+  // Reveal the landing now the viewer is opened/synced — on a /viewer/ deep
+  // link this avoids a flash of the file grid before the dialog appears.
+  document.documentElement.removeAttribute('data-wfr-boot');
 };
