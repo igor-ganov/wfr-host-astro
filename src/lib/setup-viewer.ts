@@ -102,12 +102,13 @@ const markCurrent = (s: Shell, section: HTMLElement): void => {
   }
 };
 
-/** Centre the track on `section` instantly (no animation, no settle). */
-const centre = (s: Shell, section: HTMLElement, smooth: boolean): void => {
-  const behavior: ScrollBehavior = smooth && !prefersReducedMotion() ? 'smooth' : 'auto';
-  if (behavior === 'auto') settling = true;
-  s.track.scrollTo({ left: section.offsetLeft, behavior });
-  if (behavior === 'auto') globalThis.requestAnimationFrame?.(() => (settling = false));
+/** Centre the track on `section` instantly (no animation, no settle commit). */
+const centre = (s: Shell, section: HTMLElement): void => {
+  settling = true;
+  s.track.scrollTo({ left: section.offsetLeft, behavior: 'auto' });
+  requestAnimationFrame(() => {
+    settling = false;
+  });
 };
 
 /** Lay out prev/current/next around `file` and centre it (used on open/sync). */
@@ -119,7 +120,7 @@ const layout = (s: Shell, file: FileDescriptor): void => {
   fillSlide(b, file);
   fillSlide(c, FILES[idx + 1]);
   markCurrent(s, b);
-  centre(s, b, false);
+  centre(s, b);
 };
 
 /** Recycle slides so the committed file is centred without reloading visible panes. */
@@ -143,7 +144,7 @@ const recentre = (s: Shell, file: FileDescriptor): void => {
     return;
   }
   markCurrent(s, committed);
-  centre(s, committed, false);
+  centre(s, committed);
 };
 
 /** Update URL/title/aria/controls for the new current file. */
@@ -205,12 +206,45 @@ const onScroll = (s: Shell): void => {
   }, 90);
 };
 
-/** Page via controls/keyboard: smooth-scroll to the neighbour slide. */
+// Button/keyboard paging animates ~2x faster than the browser's native smooth
+// scroll, which has no speed control.
+const PAGE_SCROLL_MS = 180;
+
+const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
+
+/** Animate `el.scrollLeft` to `to` over `ms`, then run `done`. */
+const animateScrollLeft = (el: HTMLElement, to: number, ms: number, done: () => void): void => {
+  const from = el.scrollLeft;
+  const distance = to - from;
+  if (distance === 0 || ms <= 0) {
+    el.scrollLeft = to;
+    done();
+    return;
+  }
+  let started: number | undefined;
+  const step = (now: number): void => {
+    started ??= now;
+    const t = Math.min(1, (now - started) / ms);
+    el.scrollLeft = from + distance * easeOutCubic(t);
+    if (t < 1) requestAnimationFrame(step);
+    else done();
+  };
+  requestAnimationFrame(step);
+};
+
+/** Page via controls/keyboard: scroll to the neighbour slide (snappy), then commit. */
 const page = (s: Shell, delta: number): void => {
   const [a, , c] = sections(s);
   const target = delta < 0 ? a : c;
   if (target === undefined || target.hidden) return;
-  centre(s, target, true);
+  const file = fileById(target.dataset['fileId']);
+  if (file === undefined) return;
+  settling = true; // suppress mid-animation settle commits
+  const ms = prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
+  animateScrollLeft(s.track, target.offsetLeft, ms, () => {
+    settling = false;
+    commit(s, file, true);
+  });
 };
 
 /** Open the dialog (once) and show `file`. */
@@ -307,7 +341,7 @@ const wireOnce = (s: Shell): void => {
   // Re-centre the active slide if the viewport resizes (rotation, address bar).
   globalThis.addEventListener('resize', () => {
     const section = sections(s).find((sec) => sec.dataset['fileId'] === currentId);
-    if (section !== undefined) centre(s, section, false);
+    if (section !== undefined) centre(s, section);
   });
 };
 
