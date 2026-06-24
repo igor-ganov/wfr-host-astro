@@ -240,10 +240,15 @@ const page = (s: Shell, delta: number): void => {
   const file = fileById(target.dataset['fileId']);
   if (file === undefined) return;
   settling = true; // suppress mid-animation settle commits
+  // Mandatory scroll-snap fights a JS scrollLeft animation (it yanks each frame
+  // back to a snap point — the "bounce"). Disable snap for the animation, then
+  // restore it once we've landed/recentred on a snap point.
+  s.track.style.scrollSnapType = 'none';
   const ms = prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
   animateScrollLeft(s.track, target.offsetLeft, ms, () => {
     settling = false;
     commit(s, file, true);
+    s.track.style.scrollSnapType = '';
   });
 };
 
