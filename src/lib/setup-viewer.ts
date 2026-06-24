@@ -185,41 +185,10 @@ const commit = (s: Shell, file: FileDescriptor, push: boolean): void => {
   recentre(s, file);
 };
 
-/** The slide nearest the viewport centre once scrolling has settled. */
-const settledFile = (s: Shell): FileDescriptor | undefined => {
-  const centreX = s.track.scrollLeft + s.track.clientWidth / 2;
-  let best: HTMLElement | undefined;
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (const sec of sections(s)) {
-    if (sec.hidden) continue;
-    const mid = sec.offsetLeft + sec.clientWidth / 2;
-    const dist = Math.abs(mid - centreX);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = sec;
-    }
-  }
-  return best === undefined ? undefined : fileById(best.dataset['fileId']);
-};
-
-/** Commit the file the carousel has settled on (after snap finishes). */
-const onSettle = (s: Shell): void => {
-  if (settling) return;
-  const file = settledFile(s);
-  if (file !== undefined && file.id !== currentId) commit(s, file, true);
-};
-
-// `scrollend` fires once snap has fully settled — committing then keeps the
-// recentre seamless. The debounce is a fallback for browsers without it.
-const onScroll = (s: Shell): void => {
-  if (settling) return;
-  if (settleTimer !== undefined) clearTimeout(settleTimer);
-  settleTimer = setTimeout(() => onSettle(s), 140);
-};
-
-// Button/keyboard paging animates ~2x faster than the browser's native smooth
-// scroll, which has no speed control.
+// Paging animations use a fixed duration (no speed control on native smooth
+// scroll); ~2x faster than the browser default.
 const PAGE_SCROLL_MS = 180;
+const SNAP_TOLERANCE = 2; // px — treat as "on a snap point" within this
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
 
@@ -241,6 +210,53 @@ const animateScrollLeft = (el: HTMLElement, to: number, ms: number, done: () => 
     else done();
   };
   requestAnimationFrame(step);
+};
+
+/** The slide whose snap point (offsetLeft) is nearest the current scroll. */
+const nearestSnapSection = (s: Shell): HTMLElement | undefined => {
+  let best: HTMLElement | undefined;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const sec of sections(s)) {
+    if (sec.hidden) continue;
+    const dist = Math.abs(sec.offsetLeft - s.track.scrollLeft);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = sec;
+    }
+  }
+  return best;
+};
+
+/**
+ * Once scrolling stops, glide to the nearest snap point (if the scroll halted
+ * between slides) and only THEN commit + recentre. Committing off a snap point
+ * forced a visible jump — the recentre is geometrically neutral only when we
+ * are exactly on a snap boundary.
+ */
+const onSettle = (s: Shell): void => {
+  if (settling) return;
+  const target = nearestSnapSection(s);
+  if (target === undefined) return;
+  const file = fileById(target.dataset['fileId']);
+  if (file === undefined) return;
+  const onSnap = Math.abs(s.track.scrollLeft - target.offsetLeft) <= SNAP_TOLERANCE;
+  if (file.id === currentId && onSnap) return; // already settled on the current slide
+  settling = true;
+  s.track.style.scrollSnapType = 'none';
+  const ms = onSnap || prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
+  animateScrollLeft(s.track, target.offsetLeft, ms, () => {
+    if (file.id !== currentId) commit(s, file, true);
+    s.track.style.scrollSnapType = '';
+    settling = false;
+  });
+};
+
+// Commit after the scroll settles. `scrollend` fires once snap finishes; the
+// debounce is a fallback for browsers without it.
+const onScroll = (s: Shell): void => {
+  if (settling) return;
+  if (settleTimer !== undefined) clearTimeout(settleTimer);
+  settleTimer = setTimeout(() => onSettle(s), 140);
 };
 
 /** Page via controls/keyboard: scroll to the neighbour slide (snappy), then commit. */

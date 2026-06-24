@@ -210,6 +210,50 @@ test('mobile: a horizontal swipe over the content pages the carousel', async ({
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
 
+// Track the on-screen X of the slide holding `fileId` every frame while running
+// `action`, and return the largest single-frame jump. A seamless recentre keeps
+// the centred content continuous; an off-snap commit yanked it ~138px in 1 frame.
+const maxFrameJump = async (page: Page, fileId: string, action: () => Promise<void>): Promise<number> => {
+  await page.evaluate((fid) => {
+    const track = document.getElementById('track');
+    const w = globalThis as unknown as { __on: boolean; __s: number[] };
+    w.__s = [];
+    w.__on = true;
+    const tick = (): void => {
+      const sec = [...(track?.children ?? [])].find(
+        (s) => s instanceof HTMLElement && s.dataset['fileId'] === fid,
+      );
+      if (sec instanceof HTMLElement) w.__s.push(Math.round(sec.getBoundingClientRect().left));
+      if (w.__on) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, fileId);
+  await action();
+  await page.waitForTimeout(1000);
+  return page.evaluate(() => {
+    const w = globalThis as unknown as { __on: boolean; __s: number[] };
+    w.__on = false;
+    let max = 0;
+    for (let i = 1; i < w.__s.length; i += 1) max = Math.max(max, Math.abs(w.__s[i] - w.__s[i - 1]));
+    return max;
+  });
+};
+
+test('mobile: the second swipe recentres without a jerk', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  await open(page, 'readme.md');
+  // First swipe → notes (current lands in the middle slot; recentre is trivial).
+  await swipeContent(page, -1);
+  await expect(page).toHaveURL(/\/viewer\/notes$/);
+  // Second swipe → sales: the recentre must reposition scrollLeft AND reorder
+  // the DOM atomically. Committing off a snap point used to yank ~138px.
+  const jump = await maxFrameJump(page, 'sales', async () => {
+    await swipeContent(page, -1);
+    await expect(page).toHaveURL(/\/viewer\/sales$/);
+  });
+  expect(jump).toBeLessThan(60);
+});
+
 test('mobile: a vertical scroll gesture does not page', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
   await page.setViewportSize({ width: 360, height: 640 });
