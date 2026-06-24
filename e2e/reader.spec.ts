@@ -189,6 +189,29 @@ test('mobile: a vertical scroll gesture does not page', async ({ page }, testInf
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
 
+test('mobile: swiping horizontally-scrollable content scrolls it, then pages at the edge', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  // Narrow viewport so the CSV table is wider than its card (horizontal scroll).
+  await page.setViewportSize({ width: 360, height: 640 });
+  await open(page, 'sales.csv');
+  const cardScrollLeft = (): Promise<number> => page.locator(SEL.page).evaluate((el) => el.scrollLeft);
+  // Precondition: the card can actually scroll horizontally.
+  const maxScroll = await page.locator(SEL.page).evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(maxScroll).toBeGreaterThan(2);
+
+  // First horizontal swipe scrolls the table — it must NOT page.
+  await swipeSurface(page, -1);
+  await page.waitForTimeout(200);
+  expect(await cardScrollLeft()).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/\/viewer\/sales$/);
+
+  // Now at the right edge: a further swipe-left can't scroll, so it pages.
+  await swipeSurface(page, -1);
+  await expect(page).toHaveURL(/\/viewer\/logo$/);
+});
+
 test('Next button pages to the next file in the SAME dialog (no nav, no flash)', async ({
   page,
 }) => {
