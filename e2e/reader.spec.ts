@@ -120,6 +120,25 @@ const pageByScroll = async (page: Page, dir: -1 | 1): Promise<void> => {
     .evaluate((t, d) => t.scrollBy({ left: d * t.clientWidth, behavior: 'instant' }), dir);
 };
 
+// A real horizontal touch swipe over the content (dir -1 = left/next, +1 =
+// right/prev). The gesture must chain from the content surface to the carousel
+// track — if the surface contains the overscroll, this silently does nothing.
+const swipeContent = async (page: Page, dir: -1 | 1): Promise<void> => {
+  const box = await page.locator(SEL.surface).boundingBox();
+  const y = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  const cx = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const start = cx - dir * 130;
+  const end = cx + dir * 130;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: start, y }] });
+  for (let i = 1; i <= 12; i += 1) {
+    const x = start + ((end - start) * i) / 12;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+};
+
 // Dispatch a mostly-vertical drag (a scroll gesture) with slight horizontal drift.
 const dragVertical = async (page: Page): Promise<void> => {
   const box = await page.locator(SEL.surface).boundingBox();
@@ -167,6 +186,26 @@ test('carousel: scrolling the track pages between files in the same dialog', asy
 
   // Scroll back → previous file.
   await pageByScroll(page, -1);
+  await expect(page).toHaveURL(/\/viewer\/readme$/);
+  await expect(page.locator('#viewer-title')).toHaveText('readme.md');
+});
+
+test('mobile: a horizontal swipe over the content pages the carousel', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
+  await open(page, 'readme.md');
+  await markNav(page);
+
+  // Swipe left → next file. This only works if the content surface chains its
+  // horizontal overscroll to the carousel track.
+  await swipeContent(page, -1);
+  await expect(page).toHaveURL(/\/viewer\/notes$/);
+  await expect(page.locator('#viewer-title')).toHaveText('notes.txt');
+  expect(await navMarkSurvived(page)).toBe(true);
+
+  // Swipe right → previous file.
+  await swipeContent(page, 1);
   await expect(page).toHaveURL(/\/viewer\/readme$/);
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
