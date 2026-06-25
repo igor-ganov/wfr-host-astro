@@ -361,6 +361,29 @@ test('deep-linking to a file opens the viewer and reveals the landing', async ({
   expect(stillBooting).toBe(false);
 });
 
+test('deep-link load never paints the file grid (no icon flash)', async ({ page }) => {
+  // Count any frame where the landing grid is actually painted while the dialog
+  // isn't open — that is the icon flash. Installed before any page script runs.
+  await page.addInitScript(() => {
+    Reflect.set(globalThis, '__flash', 0);
+    const tick = (): void => {
+      const grid = document.querySelector('main.page');
+      const dialog = document.querySelector('#viewer-dialog');
+      const open = dialog instanceof HTMLDialogElement && dialog.open;
+      if (grid && getComputedStyle(grid).visibility === 'visible' && !open) {
+        Reflect.set(globalThis, '__flash', Number(Reflect.get(globalThis, '__flash')) + 1);
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.goto('/viewer/readme');
+  await expect(page.locator(SEL.dialog)).toBeVisible();
+  await page.waitForTimeout(700);
+  const flashes = await page.evaluate(() => Number(Reflect.get(globalThis, '__flash') ?? 0));
+  expect(flashes).toBe(0);
+});
+
 test('clicking a tile opens the viewer client-side (no document navigation)', async ({ page }) => {
   await markNav(page);
   await open(page, 'readme.md');

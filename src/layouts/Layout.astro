@@ -45,6 +45,16 @@ const { title = 'Web File Reader' } = Astro.props;
         window.addEventListener('orientationchange', sync);
       })();
     </script>
+    <!-- Critical, INLINE so it applies at the very first paint (the external
+         stylesheet can apply a frame late and flash the file grid): hide the
+         landing on a /viewer/ deep link until JS opens the dialog, and hide it
+         whenever the viewer dialog is open. -->
+    <style is:inline>
+      html[data-wfr-boot='viewer'] .page,
+      body:has(dialog#viewer-dialog[open]) .page {
+        visibility: hidden;
+      }
+    </style>
   </head>
   <body>
     <slot />
