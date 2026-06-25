@@ -191,8 +191,6 @@ const PAGE_SCROLL_MS = 180;
 const SNAP_TOLERANCE = 2; // px — treat as "on a snap point" within this
 
 const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
-// Gentle both-ends easing for the settle correction (no fast first frame).
-const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
 
 /** Animate `el.scrollLeft` to `to` over `ms` with `ease`, then run `done`. */
 const animateScrollLeft = (
@@ -236,10 +234,14 @@ const nearestSnapSection = (s: Shell): HTMLElement | undefined => {
 };
 
 /**
- * Once scrolling stops, glide to the nearest snap point (if the scroll halted
- * between slides) and only THEN commit + recentre. Committing off a snap point
- * forced a visible jump — the recentre is geometrically neutral only when we
- * are exactly on a snap boundary.
+ * Once scrolling stops, align to the nearest snap point and commit + recentre.
+ *
+ * No JS glide here: on a real device mandatory snap has already settled exactly
+ * on a snap point by the time we run, so the align is a no-op and the recentre
+ * is geometrically neutral. A glide would FIGHT a fast follow-up swipe's native
+ * scroll. The `finally` is essential: it guarantees the `settling` guard is
+ * released even if commit throws — otherwise every future settle is blocked and
+ * the title/aria desync from the centred slide (which then sits stuck off-snap).
  */
 const onSettle = (s: Shell): void => {
   if (settling) return;
@@ -250,13 +252,16 @@ const onSettle = (s: Shell): void => {
   const onSnap = Math.abs(s.track.scrollLeft - target.offsetLeft) <= SNAP_TOLERANCE;
   if (file.id === currentId && onSnap) return; // already settled on the current slide
   settling = true;
-  s.track.style.scrollSnapType = 'none';
-  const ms = onSnap || prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
-  animateScrollLeft(s.track, target.offsetLeft, ms, easeInOutCubic, () => {
+  try {
+    s.track.style.scrollSnapType = 'none';
+    s.track.scrollLeft = target.offsetLeft; // align (a no-op once natively snapped)
     if (file.id !== currentId) commit(s, file, true);
+  } finally {
     s.track.style.scrollSnapType = '';
-    settling = false;
-  });
+    requestAnimationFrame(() => {
+      settling = false;
+    });
+  }
 };
 
 // Commit after the scroll settles. `scrollend` fires once snap finishes; the
@@ -281,9 +286,12 @@ const page = (s: Shell, delta: number): void => {
   s.track.style.scrollSnapType = 'none';
   const ms = prefersReducedMotion() ? 0 : PAGE_SCROLL_MS;
   animateScrollLeft(s.track, target.offsetLeft, ms, easeOutCubic, () => {
-    settling = false;
-    commit(s, file, true);
-    s.track.style.scrollSnapType = '';
+    try {
+      commit(s, file, true);
+    } finally {
+      s.track.style.scrollSnapType = '';
+      settling = false;
+    }
   });
 };
 

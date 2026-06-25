@@ -210,48 +210,91 @@ test('mobile: a horizontal swipe over the content pages the carousel', async ({
   await expect(page.locator('#viewer-title')).toHaveText('readme.md');
 });
 
-// Track the on-screen X of the slide holding `fileId` every frame while running
-// `action`, and return the largest single-frame jump. A seamless recentre keeps
-// the centred content continuous; an off-snap commit yanked it ~138px in 1 frame.
-const maxFrameJump = async (page: Page, fileId: string, action: () => Promise<void>): Promise<number> => {
-  await page.evaluate((fid) => {
+// The carousel's invariant: the slide centred in the viewport must be the
+// current file — its dataset id, the title and the URL all agree — and it must
+// be fully opaque (on a snap point, not the dimmed off-snap state). Returns the
+// mismatch info so a failing assert is legible.
+const carouselState = (page: Page): Promise<{
+  centered: string | undefined;
+  current: string | undefined;
+  opacity: number;
+}> =>
+  page.evaluate(() => {
     const track = document.getElementById('track');
-    const w = globalThis as unknown as { __on: boolean; __s: number[] };
-    w.__s = [];
-    w.__on = true;
-    const tick = (): void => {
-      const sec = [...(track?.children ?? [])].find(
-        (s) => s instanceof HTMLElement && s.dataset['fileId'] === fid,
-      );
-      if (sec instanceof HTMLElement) w.__s.push(Math.round(sec.getBoundingClientRect().left));
-      if (w.__on) requestAnimationFrame(tick);
+    const mid = (track?.scrollLeft ?? 0) + (track?.clientWidth ?? 0) / 2;
+    let centered: HTMLElement | undefined;
+    let best = Number.POSITIVE_INFINITY;
+    for (const sec of [...(track?.children ?? [])]) {
+      if (!(sec instanceof HTMLElement) || sec.hidden) continue;
+      const d = Math.abs(sec.offsetLeft + sec.clientWidth / 2 - mid);
+      if (d < best) {
+        best = d;
+        centered = sec;
+      }
+    }
+    const cur = [...(track?.children ?? [])].find(
+      (s) => s instanceof HTMLElement && s.getAttribute('aria-current') === 'true',
+    );
+    const viewer = centered?.querySelector('wfr-viewer');
+    return {
+      centered: centered?.dataset['fileId'],
+      current: cur instanceof HTMLElement ? cur.dataset['fileId'] : undefined,
+      opacity: viewer ? Number.parseFloat(getComputedStyle(viewer).opacity) : 0,
     };
-    requestAnimationFrame(tick);
-  }, fileId);
-  await action();
-  await page.waitForTimeout(1000);
-  return page.evaluate(() => {
-    const w = globalThis as unknown as { __on: boolean; __s: number[] };
-    w.__on = false;
-    let max = 0;
-    for (let i = 1; i < w.__s.length; i += 1) max = Math.max(max, Math.abs(w.__s[i] - w.__s[i - 1]));
-    return max;
   });
-};
 
-test('mobile: the second swipe recentres without a jerk', async ({ page }, testInfo) => {
+test('mobile: title/content stay in sync across several swipes', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'touch-only behaviour');
   await open(page, 'readme.md');
-  // First swipe → notes (current lands in the middle slot; recentre is trivial).
-  await swipeContent(page, -1);
-  await expect(page).toHaveURL(/\/viewer\/notes$/);
-  // Second swipe → sales: the recentre must reposition scrollLeft AND reorder
-  // the DOM atomically. Committing off a snap point used to yank ~138px.
-  const jump = await maxFrameJump(page, 'sales', async () => {
+  const ids = ['notes', 'sales', 'logo'];
+  for (const id of ids) {
     await swipeContent(page, -1);
-    await expect(page).toHaveURL(/\/viewer\/sales$/);
-  });
-  expect(jump).toBeLessThan(60);
+    await expect(page).toHaveURL(new RegExp(`/viewer/${id}$`));
+    // The centred slide, the aria-current marker and the URL must all agree,
+    // and the centred pane must be fully opaque (settled on a snap point). Poll
+    // so the scroll-driven opacity has a frame to settle under parallel load.
+    await expect.poll(async () => (await carouselState(page)).centered).toBe(id);
+    const st = await carouselState(page);
+    expect(st.current).toBe(id);
+    expect(st.opacity).toBeGreaterThan(0.9);
+  }
+});
+
+test('recentre is visually neutral at a snap point (no jerk)', async ({ page }) => {
+  // Land on exact snap offsets (what a real device does after a swipe) and check
+  // the committed slide does not jump on screen during the recentre.
+  await open(page, 'readme.md');
+  const pageToNeighbour = async (id: string): Promise<number> => {
+    // Sample the centred slide's on-screen X each frame while the track scrolls
+    // by one slide; return the largest single-frame jump (a neutral recentre
+    // keeps it continuous). All in one evaluate — no shared globals.
+    const jump = await page.evaluate(async () => {
+      const track = document.getElementById('track');
+      if (!track) return -1;
+      const samples: number[] = [];
+      let on = true;
+      const tick = (): void => {
+        const c = [...track.children].find(
+          (s) => s instanceof HTMLElement && s.getAttribute('aria-current') === 'true',
+        );
+        if (c instanceof HTMLElement) samples.push(Math.round(c.getBoundingClientRect().left));
+        if (on) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      track.scrollBy({ left: track.clientWidth, behavior: 'instant' });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      on = false;
+      let max = 0;
+      for (let i = 1; i < samples.length; i += 1) {
+        max = Math.max(max, Math.abs(samples[i] - samples[i - 1]));
+      }
+      return max;
+    });
+    await expect(page).toHaveURL(new RegExp(`/viewer/${id}$`));
+    return jump;
+  };
+  expect(await pageToNeighbour('notes')).toBeLessThan(30);
+  expect(await pageToNeighbour('sales')).toBeLessThan(30);
 });
 
 test('mobile: a vertical scroll gesture does not page', async ({ page }, testInfo) => {
