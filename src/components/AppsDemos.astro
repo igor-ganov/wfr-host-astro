@@ -1,0 +1,220 @@
+---
+import { LIVE_DEMOS, MORE_PROJECTS } from '../lib/apps';
+---
+
+<section class="apps" aria-labelledby="apps-heading">
+  <header class="apps-head">
+    <h2 id="apps-heading">Apps &amp; Demos</h2>
+    <p>Open-source projects from the last year and a half. The live demos run right here on the page.</p>
+  </header>
+
+  <h3 class="apps-sub">Live demos</h3>
+  <ul class="apps-grid" role="list">
+    {
+      LIVE_DEMOS.map((app) => (
+        <li class="app-card">
+          <div class="demo-stage" data-demo={app.demo} data-title={app.title}>
+            <button type="button" class="demo-play" aria-label={`Load live demo of ${app.title}`}>
+              <span class="demo-play-icon" aria-hidden="true">▶</span>
+              <span>Load live demo</span>
+            </button>
+          </div>
+          <div class="app-body">
+            <h4>{app.title}</h4>
+            <p>{app.description}</p>
+            <ul class="tags" role="list">
+              {app.tech.map((t) => (
+                <li>{t}</li>
+              ))}
+            </ul>
+            <p class="app-links">
+              <a href={app.demo} target="_blank" rel="noopener noreferrer">Open ↗</a>
+              <a href={app.source} target="_blank" rel="noopener noreferrer">Source</a>
+              {app.links?.map((l) => (
+                <a href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a>
+              ))}
+            </p>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+
+  <h3 class="apps-sub">More projects</h3>
+  <ul class="apps-grid" role="list">
+    {
+      MORE_PROJECTS.map((app) => (
+        <li class="app-card is-code-only">
+          <div class="app-body">
+            <h4>{app.title}</h4>
+            <p>{app.description}</p>
+            <ul class="tags" role="list">
+              {app.tech.map((t) => (
+                <li>{t}</li>
+              ))}
+            </ul>
+            <p class="app-links">
+              <a href={app.source} target="_blank" rel="noopener noreferrer">Source</a>
+              {app.links?.map((l) => (
+                <a href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a>
+              ))}
+            </p>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<script>
+  // Click-to-load: no demo iframe is created until requested, so the landing
+  // ships zero third-party frames and keeps its Lighthouse score.
+  const stages = document.querySelectorAll<HTMLElement>('.demo-stage[data-demo]');
+  for (const stage of stages) {
+    const button = stage.querySelector('button');
+    button?.addEventListener('click', () => {
+      const src = stage.dataset.demo;
+      if (src === undefined || src === '') return;
+      const frame = document.createElement('iframe');
+      frame.src = src;
+      frame.title = `${stage.dataset.title ?? 'App'} live demo`;
+      frame.loading = 'lazy';
+      frame.className = 'demo-frame';
+      frame.setAttribute('referrerpolicy', 'no-referrer');
+      stage.replaceChildren(frame);
+      stage.classList.add('is-loaded');
+    });
+  }
+</script>
+
+<style>
+  .apps {
+    max-inline-size: 72rem;
+    margin: 3rem auto 0;
+  }
+  .apps-head h2 {
+    margin: 0 0 0.25rem;
+    font-size: clamp(1.4rem, 3.5vw, 2rem);
+    letter-spacing: -0.02em;
+  }
+  .apps-head p {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    max-inline-size: 52ch;
+  }
+  .apps-sub {
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .apps-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  }
+  .app-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    overflow: hidden;
+  }
+  .demo-stage {
+    aspect-ratio: 16 / 10;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, CanvasText 5%, Canvas);
+    border-block-end: 1px solid var(--line);
+  }
+  .demo-stage.is-loaded {
+    aspect-ratio: auto;
+    block-size: clamp(20rem, 60vh, 34rem);
+  }
+  .demo-play {
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.75rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg);
+    color: inherit;
+  }
+  @media (hover: hover) {
+    .demo-play:hover {
+      border-color: var(--accent);
+    }
+  }
+  .demo-play:focus-visible {
+    outline: var(--focus);
+    outline-offset: 2px;
+  }
+  .demo-play-icon {
+    font-size: 0.8em;
+  }
+  :global(.demo-frame) {
+    inline-size: 100%;
+    block-size: 100%;
+    border: 0;
+    display: block;
+    background: Canvas;
+  }
+  .app-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem 1.1rem 1.2rem;
+    flex: 1 1 auto;
+  }
+  .app-body h4 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+  .app-body p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  .tags {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .tags li {
+    font-size: 0.72rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .app-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-block-start: auto;
+    padding-block-start: 0.4rem;
+  }
+  .app-links a {
+    color: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .app-links a:focus-visible {
+    outline: var(--focus);
+    outline-offset: 2px;
+  }
+</style>

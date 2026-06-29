@@ -143,6 +143,17 @@ const { title = 'Web File Reader' } = Astro.props;
         --wfr-grid-min: 8rem;
         --wfr-grid-gap: 1rem;
         --wfr-focus-outline: var(--focus);
+        /* Reserve the grid's height so hydrating the tiles never reflows the
+           content below it (the Apps & Demos section). 8rem rows + 1rem gap:
+           wide = 2 rows = 17rem; narrower bands reserve more below. Keeps CLS
+           at zero across widths. */
+        min-block-size: 17rem;
+      }
+      /* 3-row band (≈4 columns) before the mobile breakpoint. */
+      @media (max-width: 49rem) {
+        wfr-file-grid {
+          min-block-size: 25rem;
+        }
       }
       /* Fixed row height makes grid layout deterministic, so hydrating tiles
          never reflow the rows (CLS stays at zero). */
